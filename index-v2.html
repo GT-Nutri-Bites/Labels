@@ -1,0 +1,2502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GT Nutri Bites · Label Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS
+════════════════════════════════════════════ */
+:root {
+  /* Brand palette */
+  --g900:#0f2d18; --g800:#1a4527; --g700:#1e5c30; --g600:#2d7a42;
+  --g500:#3d9a56; --g400:#5db870; --g300:#8ed3a0; --g100:#e8f5eb; --g50:#f3fbf5;
+  --h600:#a06810; --h500:#c8961e; --h400:#e5b030; --h300:#f0c84a; --h100:#fef3d0;
+  --n900:#0d0d0d; --n800:#1c1c1c; --n700:#2e2e2e; --n600:#444; --n500:#666;
+  --n400:#888; --n300:#b0b0b0; --n200:#d5d5d5; --n100:#ebebeb; --n50:#f7f7f7;
+  --white:#ffffff; --cream:#faf8f3; --parchment:#f0ead8;
+  --red:#d9392c; --red-l:#fee2e0;
+  
+  /* Layout */
+  --panel-w:320px;
+  --header-h:56px;
+  --radius-sm:6px;
+  --radius:10px;
+  --radius-lg:16px;
+  --radius-xl:24px;
+  
+  /* Shadows */
+  --shadow-xs:0 1px 2px rgba(0,0,0,.06);
+  --shadow-sm:0 2px 6px rgba(0,0,0,.08);
+  --shadow:0 4px 16px rgba(0,0,0,.1);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.15);
+  --shadow-xl:0 24px 64px rgba(0,0,0,.2);
+  
+  /* Transitions */
+  --ease:.2s cubic-bezier(.4,0,.2,1);
+  --ease-spring:.35s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* Dark mode */
+body.dark {
+  --cream:#141a16; --parchment:#1e2921;
+  --n50:#1a1a1a; --n100:#252525; --n200:#333; --n300:#4a4a4a;
+  --n400:#666; --n500:#888; --n600:#aaa; --n700:#ccc; --n800:#e0e0e0; --n900:#f0f0f0;
+  --white:#1a1f1c;
+  --g100:#0d2a18; --g50:#0a1f12;
+  --h100:#2a1f05;
+  --shadow:0 4px 16px rgba(0,0,0,.4); --shadow-lg:0 12px 40px rgba(0,0,0,.5);
+}
+
+/* ═══════════════════════════════════════════
+   RESET & BASE
+════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;scroll-behavior:smooth}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--cream);
+  color:var(--n900);
+  min-height:100vh;
+  font-size:14px;
+  line-height:1.5;
+  transition:background var(--ease),color var(--ease);
+  overflow:hidden;
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--n200);border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+button,input,select,textarea{font-family:inherit}
+img{display:block}
+
+/* ═══════════════════════════════════════════
+   APP SHELL
+════════════════════════════════════════════ */
+#app{display:grid;grid-template-columns:var(--panel-w) 1fr var(--panel-w);grid-template-rows:var(--header-h) 1fr;height:100vh;overflow:hidden}
+#topbar{grid-column:1/-1;grid-row:1;background:var(--g800);display:flex;align-items:center;gap:0;z-index:100;box-shadow:0 1px 0 rgba(255,255,255,.08),var(--shadow)}
+#left-panel{grid-column:1;grid-row:2;background:var(--white);border-right:1px solid var(--n100);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;position:relative;transition:transform var(--ease),background var(--ease)}
+#canvas-area{grid-column:2;grid-row:2;background:var(--n50);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:auto;transition:background var(--ease)}
+#right-panel{grid-column:3;grid-row:2;background:var(--white);border-left:1px solid var(--n100);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;transition:background var(--ease)}
+
+/* ═══════════════════════════════════════════
+   TOP BAR
+════════════════════════════════════════════ */
+.topbar-brand{display:flex;align-items:center;gap:10px;padding:0 20px;border-right:1px solid rgba(255,255,255,.1);height:100%}
+.topbar-logo{width:36px;height:36px;border-radius:9px;object-fit:contain;background:rgba(255,255,255,.12);padding:4px}
+.topbar-name{color:#fff;font-weight:700;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+.topbar-name span{opacity:.6;font-weight:400;font-size:13px;margin-left:6px}
+
+/* Workflow steps nav */
+#workflow-nav{display:flex;align-items:center;flex:1;padding:0 16px;gap:2px;overflow-x:auto}
+.wf-step{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;cursor:pointer;transition:background var(--ease),color var(--ease);color:rgba(255,255,255,.55);white-space:nowrap;font-size:13px;font-weight:500;border:none;background:none;position:relative}
+.wf-step:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85)}
+.wf-step.active{background:rgba(255,255,255,.14);color:#fff}
+.wf-step .wf-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:rgba(255,255,255,.15);flex-shrink:0;transition:background var(--ease)}
+.wf-step.active .wf-num{background:var(--h400);color:var(--g800)}
+.wf-step.done .wf-num{background:var(--g400);color:var(--g800)}
+.wf-step.done{color:rgba(255,255,255,.7)}
+.wf-sep{width:20px;height:1px;background:rgba(255,255,255,.15);flex-shrink:0}
+
+/* Topbar actions */
+.topbar-actions{display:flex;align-items:center;gap:4px;padding:0 16px;border-left:1px solid rgba(255,255,255,.1);height:100%}
+.topbar-btn{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:7px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;transition:all var(--ease);white-space:nowrap}
+.tb-ghost{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.tb-ghost:hover{background:rgba(255,255,255,.18);color:#fff}
+.tb-honey{background:var(--h400);color:var(--g800)}
+.tb-honey:hover{background:var(--h300)}
+.tb-icon{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);padding:7px;border-radius:7px;border:none;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background var(--ease)}
+.tb-icon:hover{background:rgba(255,255,255,.16);color:#fff}
+
+/* ═══════════════════════════════════════════
+   LEFT PANEL — LABEL CONTENT
+════════════════════════════════════════════ */
+.panel-header{padding:16px 20px 12px;border-bottom:1px solid var(--n100);flex-shrink:0}
+.panel-title{font-size:13px;font-weight:700;color:var(--n700);letter-spacing:.03em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.panel-subtitle{font-size:12px;color:var(--n400);margin-top:2px}
+
+/* Label type selector */
+#type-scroller{padding:14px 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-shrink:0}
+.type-card{border:1.5px solid var(--n100);border-radius:var(--radius);padding:10px 6px;cursor:pointer;text-align:center;transition:all var(--ease);background:var(--cream);position:relative;user-select:none}
+.type-card:hover{border-color:var(--g400);transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.type-card.active{border-color:var(--g700);background:var(--g50);box-shadow:0 0 0 3px rgba(30,92,48,.12)}
+.type-card .tc-ico{font-size:20px;margin-bottom:4px;display:block;line-height:1}
+.type-card .tc-name{font-size:10px;font-weight:600;color:var(--n600);line-height:1.2}
+.type-card.active .tc-name{color:var(--g700)}
+.tc-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--g500);display:none}
+.type-card.active .tc-dot{display:block}
+
+/* Content fields */
+.fields-area{flex:1;overflow-y:auto;padding-bottom:80px}
+.field-group{padding:0 16px 14px}
+.field-label{font-size:11.5px;font-weight:600;color:var(--n500);margin-bottom:5px;display:flex;align-items:center;gap:5px;text-transform:uppercase;letter-spacing:.04em}
+.field-label .req{color:var(--h500);font-size:10px}
+.field-label .hint{font-size:10px;color:var(--n400);font-weight:400;text-transform:none;letter-spacing:0;margin-left:auto}
+.finput{width:100%;border:1.5px solid var(--n200);border-radius:var(--radius-sm);padding:9px 12px;font-size:13px;background:var(--cream);color:var(--n900);outline:none;transition:border-color var(--ease),box-shadow var(--ease),background var(--ease);line-height:1.4}
+.finput:hover{border-color:var(--n300)}
+.finput:focus{border-color:var(--g600);background:var(--white);box-shadow:0 0 0 3px rgba(30,92,48,.1)}
+.finput::placeholder{color:var(--n300);font-size:12px}
+textarea.finput{resize:vertical;min-height:60px}
+select.finput{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+/* Bottom action area */
+.panel-footer{position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--n100);padding:12px 16px;display:flex;flex-direction:column;gap:8px;z-index:10;box-shadow:0 -4px 20px rgba(0,0,0,.06)}
+
+/* ═══════════════════════════════════════════
+   CANVAS AREA
+════════════════════════════════════════════ */
+.canvas-bg-grid{
+  background-image:radial-gradient(var(--n200) 1px,transparent 1px);
+  background-size:20px 20px;
+  position:absolute;inset:0;opacity:.4;
+}
+.canvas-center{display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;z-index:1;min-height:100%;padding:80px 40px}
+#label-canvas{position:relative;transition:transform var(--ease);box-shadow:0 4px 30px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.06);cursor:default;border-radius:4px;overflow:hidden}
+#label-inner{width:100%;height:100%;overflow:hidden;position:relative}
+
+/* Canvas toolbar */
+#canvas-toolbar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:var(--white);border-radius:30px;padding:6px 10px;box-shadow:var(--shadow-lg);border:1px solid var(--n100);z-index:20;white-space:nowrap}
+.ct-btn{background:none;border:none;cursor:pointer;padding:6px 10px;border-radius:20px;font-size:13px;color:var(--n600);font-weight:600;transition:all var(--ease);display:flex;align-items:center;gap:5px}
+.ct-btn:hover{background:var(--n100);color:var(--n900)}
+.ct-label{font-size:12px;font-weight:700;color:var(--n400);font-family:'JetBrains Mono',monospace;min-width:48px;text-align:center}
+.ct-sep{width:1px;height:18px;background:var(--n200)}
+
+/* Size indicator badge */
+#size-badge{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-family:'JetBrains Mono',monospace;padding:4px 12px;border-radius:20px;pointer-events:none;backdrop-filter:blur(8px);opacity:0;transition:opacity .3s;z-index:20}
+#canvas-area:hover #size-badge{opacity:1}
+
+/* ═══════════════════════════════════════════
+   RIGHT PANEL — DESIGN
+════════════════════════════════════════════ */
+.acc-section{border-bottom:1px solid var(--n100)}
+.acc-header{padding:13px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background var(--ease)}
+.acc-header:hover{background:var(--n50)}
+.acc-title{font-size:12.5px;font-weight:700;color:var(--n700);display:flex;align-items:center;gap:8px}
+.acc-icon{font-size:16px;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--n50);flex-shrink:0}
+.acc-body{overflow:hidden;max-height:0;transition:max-height .3s ease}
+.acc-body.open{max-height:3000px}
+.acc-caret{font-size:10px;color:var(--n400);transition:transform .25s;flex-shrink:0}
+.acc-header.open .acc-caret{transform:rotate(180deg)}
+.acc-content{padding:0 20px 16px}
+
+/* ── Design Controls ── */
+.control-row{margin-bottom:14px}
+.control-label{font-size:11.5px;font-weight:600;color:var(--n500);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase;letter-spacing:.04em}
+.control-val{font-size:12px;color:var(--g700);font-family:'JetBrains Mono',monospace;font-weight:500}
+
+/* Sliders */
+.slider-wrap{display:flex;align-items:center;gap:10px}
+input[type="range"]{-webkit-appearance:none;flex:1;height:4px;border-radius:2px;background:var(--n200);outline:none;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--g700);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .15s}
+input[type="range"]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+
+/* Color picker */
+.color-row{display:flex;gap:6px;align-items:center}
+.color-swatch{width:38px;height:38px;border-radius:8px;border:2px solid var(--n200);overflow:hidden;flex-shrink:0;cursor:pointer;position:relative;box-shadow:var(--shadow-xs)}
+.color-swatch input[type="color"]{position:absolute;inset:-4px;width:calc(100%+8px);height:calc(100%+8px);border:none;padding:0;cursor:pointer}
+.quick-colors{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.qc{width:22px;height:22px;border-radius:5px;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0}
+.qc:hover{transform:scale(1.2)}
+.qc.sel{border-color:var(--g700)}
+
+/* Color preset pills */
+.preset-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.preset-pill{padding:5px 12px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--n200);background:var(--cream);transition:all var(--ease);color:var(--n600)}
+.preset-pill:hover{border-color:var(--g600);color:var(--g700);background:var(--g50)}
+.preset-pill.active{border-color:var(--g700);background:var(--g700);color:#fff}
+
+/* Toggle row */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.toggle-label{font-size:13px;color:var(--n700)}
+.toggle-desc{font-size:11.5px;color:var(--n400)}
+.tog-wrap{position:relative;width:38px;height:20px;flex-shrink:0}
+.tog-wrap input{opacity:0;width:0;height:0;position:absolute}
+.tog-track{position:absolute;inset:0;border-radius:10px;background:var(--n200);cursor:pointer;transition:background .2s}
+.tog-track::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tog-wrap input:checked+.tog-track{background:var(--g600)}
+.tog-wrap input:checked+.tog-track::before{transform:translateX(18px)}
+
+/* Logo pos grid */
+.logo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;border:1.5px solid var(--n200);border-radius:8px;padding:5px;background:var(--n50)}
+.logo-cell{aspect-ratio:1;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.logo-cell:hover{background:var(--h100)}
+.logo-cell.active{background:var(--g700)}
+.logo-cell .dot{width:5px;height:5px;border-radius:50%;background:var(--n300);transition:.15s}
+.logo-cell.active .dot{background:#fff}
+
+/* Size pills */
+.size-pills{display:flex;gap:6px;flex-wrap:wrap}
+.size-pill{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--n200);background:var(--cream);font-family:'JetBrains Mono',monospace;font-size:11px;transition:all var(--ease);color:var(--n600)}
+.size-pill:hover{border-color:var(--g600);color:var(--g700)}
+.size-pill.active{border-color:var(--g700);background:var(--g700);color:#fff}
+
+/* Text align buttons */
+.align-btns{display:flex;border:1.5px solid var(--n200);border-radius:7px;overflow:hidden}
+.align-btn{flex:1;padding:7px;border:none;background:var(--cream);cursor:pointer;font-size:14px;transition:background .15s;display:flex;align-items:center;justify-content:center}
+.align-btn:hover{background:var(--n100)}
+.align-btn.active{background:var(--g700);color:#fff}
+
+/* ═══════════════════════════════════════════
+   WORKFLOW PANELS (main area)
+════════════════════════════════════════════ */
+.workflow-panel{display:none;width:100%;height:100%;overflow-y:auto}
+.workflow-panel.active{display:flex;flex-direction:column}
+
+/* ── BATCH PANEL ── */
+.batch-container{max-width:900px;margin:0 auto;padding:40px 32px;width:100%}
+.batch-header{margin-bottom:32px}
+.batch-title{font-size:26px;font-weight:700;color:var(--n800);font-family:'Playfair Display',serif;margin-bottom:8px}
+.batch-subtitle{font-size:15px;color:var(--n500);line-height:1.6}
+
+/* Step cards */
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+.step-card{background:var(--white);border:1.5px solid var(--n100);border-radius:var(--radius-lg);padding:24px;position:relative;transition:all var(--ease)}
+.step-card:hover{border-color:var(--g300);box-shadow:var(--shadow-sm)}
+.step-num{width:36px;height:36px;border-radius:50%;background:var(--g700);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.step-card.done .step-num{background:var(--g400)}
+.step-card.done{border-color:var(--g200)}
+.step-title{font-size:15px;font-weight:700;color:var(--n800);margin-bottom:6px}
+.step-desc{font-size:13px;color:var(--n500);line-height:1.5;margin-bottom:14px}
+.step-check{position:absolute;top:16px;right:16px;font-size:18px;color:var(--g400);display:none}
+.step-card.done .step-check{display:block}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--n200);border-radius:var(--radius);padding:28px;text-align:center;transition:all var(--ease);cursor:pointer;background:var(--n50)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--g500);background:var(--g50)}
+.upload-zone .uz-ico{font-size:32px;margin-bottom:8px}
+.upload-zone .uz-main{font-size:14px;font-weight:600;color:var(--n700);margin-bottom:4px}
+.upload-zone .uz-sub{font-size:12.5px;color:var(--n400)}
+
+/* Batch table */
+.batch-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--white);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm)}
+.batch-table th{background:var(--n50);padding:10px 14px;text-align:left;font-weight:600;color:var(--n500);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--n100)}
+.batch-table td{padding:10px 14px;border-bottom:1px solid var(--n50);color:var(--n700)}
+.batch-table tr:last-child td{border-bottom:none}
+.batch-table tr:hover td{background:var(--g50)}
+.status-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.sb-ready{background:var(--g100);color:var(--g700)}
+.sb-error{background:var(--red-l);color:var(--red)}
+
+/* ── SHEET PANEL ── */
+.sheet-container{max-width:1100px;margin:0 auto;padding:40px 32px;width:100%}
+.sheet-layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.sheet-config{background:var(--white);border:1.5px solid var(--n100);border-radius:var(--radius-lg);padding:24px}
+.sheet-config-title{font-size:16px;font-weight:700;color:var(--n800);margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.sheet-preview-wrap{background:var(--white);border:1.5px solid var(--n100);border-radius:var(--radius-lg);padding:24px;min-height:400px;display:flex;flex-direction:column}
+.sheet-preview-inner{flex:1;background:var(--n50);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;padding:20px;position:relative;overflow:auto}
+.sheet-page{background:#fff;box-shadow:var(--shadow-lg);position:relative}
+
+/* Source selector */
+.source-tabs{display:flex;gap:6px;margin-bottom:16px}
+.source-tab{flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid var(--n200);cursor:pointer;text-align:center;transition:all var(--ease);background:var(--cream)}
+.source-tab:hover{border-color:var(--g400)}
+.source-tab.active{border-color:var(--g700);background:var(--g50)}
+.source-tab .st-ico{font-size:18px;margin-bottom:3px}
+.source-tab .st-label{font-size:12px;font-weight:600;color:var(--n600)}
+.source-tab.active .st-label{color:var(--g700)}
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+════════════════════════════════════════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all var(--ease);white-space:nowrap;position:relative;overflow:hidden;line-height:1}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.btn-primary{background:var(--g700);color:#fff;box-shadow:0 2px 8px rgba(30,92,48,.3)}
+.btn-primary:hover:not(:disabled){background:var(--g800)}
+.btn-honey{background:var(--h400);color:var(--g900);box-shadow:0 2px 8px rgba(200,150,30,.3)}
+.btn-honey:hover:not(:disabled){background:var(--h300)}
+.btn-outline{background:transparent;border:1.5px solid var(--n200);color:var(--n700)}
+.btn-outline:hover:not(:disabled){border-color:var(--n400);background:var(--n50)}
+.btn-ghost{background:transparent;color:var(--n500)}
+.btn-ghost:hover:not(:disabled){background:var(--n100);color:var(--n800)}
+.btn-danger{background:var(--red-l);color:var(--red);border:1px solid #fca5a5}
+.btn-danger:hover:not(:disabled){background:#fee2e2}
+.btn-sm{padding:7px 14px;font-size:12.5px}
+.btn-xs{padding:5px 10px;font-size:12px}
+.btn-full{width:100%}
+.btn-icon-only{padding:8px}
+
+/* ═══════════════════════════════════════════
+   WELCOME SCREEN
+════════════════════════════════════════════ */
+#welcome-screen{position:absolute;inset:0;background:var(--white);z-index:200;display:flex;align-items:center;justify-content:center;transition:opacity .4s,transform .4s}
+#welcome-screen.out{opacity:0;transform:scale(1.02);pointer-events:none}
+.welcome-box{max-width:560px;text-align:center;padding:40px}
+.welcome-logo{width:72px;height:72px;border-radius:18px;margin:0 auto 20px;object-fit:contain;background:var(--g700);padding:10px;box-shadow:var(--shadow-lg)}
+.welcome-title{font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--g800);margin-bottom:12px;line-height:1.2}
+.welcome-sub{font-size:16px;color:var(--n500);line-height:1.6;margin-bottom:32px}
+.welcome-features{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:32px;text-align:left}
+.wf-card{background:var(--n50);border-radius:12px;padding:16px;border:1px solid var(--n100)}
+.wf-card .wfc-ico{font-size:22px;margin-bottom:6px}
+.wf-card .wfc-title{font-size:13.5px;font-weight:700;color:var(--n800);margin-bottom:3px}
+.wf-card .wfc-desc{font-size:12px;color:var(--n500);line-height:1.4}
+
+/* ═══════════════════════════════════════════
+   MODALS
+════════════════════════════════════════════ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--white);border-radius:var(--radius-xl);width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;animation:modalIn .25s cubic-bezier(.34,1.56,.64,1)}
+@keyframes modalIn{from{transform:scale(.95) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-small{max-width:480px}
+.modal-medium{max-width:680px}
+.modal-large{max-width:900px}
+.modal-head{padding:20px 24px 16px;border-bottom:1px solid var(--n100);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:18px;font-weight:700;color:var(--n800);font-family:'Playfair Display',serif}
+.modal-close{background:var(--n100);border:none;cursor:pointer;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--n500);transition:all .15s}
+.modal-close:hover{background:var(--n200);color:var(--n800)}
+.modal-body{padding:20px 24px;overflow-y:auto;flex:1}
+.modal-foot{padding:14px 24px;border-top:1px solid var(--n100);display:flex;gap:8px;justify-content:flex-end;background:var(--n50)}
+
+/* ═══════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+#toasts{position:fixed;top:70px;right:16px;z-index:9000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:320px}
+.toast{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;box-shadow:var(--shadow-lg);font-size:13.5px;font-weight:500;pointer-events:auto;animation:toastIn .3s cubic-bezier(.34,1.56,.64,1);transition:opacity .3s,transform .3s}
+@keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+.toast.out{opacity:0;transform:translateX(100%)}
+.toast-success{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0}
+.toast-error{background:var(--red-l);color:var(--red);border:1px solid #fca5a5}
+.toast-warn{background:var(--h100);color:var(--h600);border:1px solid #fde68a}
+.toast-info{background:var(--g100);color:var(--g800);border:1px solid var(--g300)}
+.toast-ico{font-size:16px;flex-shrink:0}
+
+/* ═══════════════════════════════════════════
+   LOADING
+════════════════════════════════════════════ */
+#loading{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9500;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(6px)}
+#loading.on{display:flex}
+.spinner{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-text{color:#fff;font-size:15px;font-weight:600}
+.load-sub{color:rgba(255,255,255,.6);font-size:13px}
+.load-bar-track{width:200px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden}
+.load-bar-fill{height:100%;background:linear-gradient(90deg,var(--g400),var(--h400));border-radius:2px;transition:width .4s ease;width:0}
+
+/* ═══════════════════════════════════════════
+   UTILITY
+════════════════════════════════════════════ */
+.divider{height:1px;background:var(--n100);margin:12px 0}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-green{background:var(--g100);color:var(--g700)}
+.badge-honey{background:var(--h100);color:var(--h600)}
+.badge-gray{background:var(--n100);color:var(--n600)}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--n100);color:var(--n600)}
+
+/* Info callout */
+.callout{border-radius:var(--radius);padding:12px 14px;font-size:12.5px;line-height:1.6;display:flex;gap:10px}
+.callout-green{background:var(--g50);border:1px solid var(--g200);color:var(--g800)}
+.callout-honey{background:var(--h100);border:1px solid #fde68a;color:var(--h600)}
+.callout-ico{flex-shrink:0;font-size:16px}
+
+/* Sheet cut marks */
+.cut-h,.cut-v{position:absolute;background:#ccc;pointer-events:none}
+.cut-h{height:.5px}
+.cut-v{width:.5px}
+
+/* Grid display */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* Keyboard shortcut key */
+.kbd{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 5px;border-radius:4px;background:var(--n100);border:1px solid var(--n200);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--n600)}
+
+/* ═══════════════════════════════════════════
+   PRINT
+════════════════════════════════════════════ */
+@media print{
+  *,*::before,*::after{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body>*{display:none!important}
+  #print-root{display:block!important}
+  @page{margin:0;size:auto}
+}
+#print-root{display:none}
+
+/* ═══════════════════════════════════════════
+   LABEL INNER STYLES
+════════════════════════════════════════════ */
+.lbl-row{display:flex;align-items:flex-start;gap:6px;font-size:inherit;margin:2px 0}
+.lbl-divider{border:none;border-top:1.5px solid currentColor;opacity:.2;margin:5px 0}
+
+/* RESPONSIVE */
+@media(max-width:1100px){
+  #app{grid-template-columns:var(--panel-w) 1fr;grid-template-rows:var(--header-h) 1fr auto}
+  #right-panel{grid-column:1/-1;grid-row:3;border-left:none;border-top:1px solid var(--n100);max-height:300px}
+}
+@media(max-width:740px){
+  :root{--panel-w:280px}
+  #app{grid-template-columns:1fr;grid-template-rows:var(--header-h) auto 1fr auto}
+  #left-panel{grid-column:1;grid-row:2;max-height:240px;border-right:none;border-bottom:1px solid var(--n100);overflow:hidden}
+  #canvas-area{grid-column:1;grid-row:3}
+  #right-panel{grid-column:1;grid-row:4;max-height:260px}
+  #workflow-nav{display:none}
+  .steps-grid{grid-template-columns:1fr}
+  .sheet-layout{grid-template-columns:1fr}
+}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+════════════════════════════════════════════ */
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.slide-up{animation:slideUp .3s ease}
+
+/* Empty state */
+.empty-state{text-align:center;padding:60px 20px;color:var(--n400)}
+.empty-state .es-ico{font-size:48px;margin-bottom:12px;opacity:.5}
+.empty-state .es-text{font-size:15px;font-weight:500;color:var(--n500)}
+.empty-state .es-sub{font-size:13px;margin-top:4px}
+
+/* Scrubber input */
+.num-input{width:100%;border:1.5px solid var(--n200);border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;font-family:'JetBrains Mono',monospace;background:var(--cream);color:var(--n900);outline:none;text-align:center;transition:border-color var(--ease)}
+.num-input:focus{border-color:var(--g600);background:var(--white)}
+
+/* Progress bar */
+.prog-track{height:5px;background:var(--n100);border-radius:3px;overflow:hidden;margin:8px 0}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--g500),var(--h400));border-radius:3px;transition:width .3s}
+
+/* Tabs (simple) */
+.stabs{display:flex;background:var(--n50);border-radius:8px;padding:3px;gap:2px;margin-bottom:14px}
+.stab{flex:1;padding:7px 10px;border-radius:6px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--n500);background:none;transition:all .15s;text-align:center}
+.stab.active{background:var(--white);color:var(--n800);box-shadow:var(--shadow-xs)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ WELCOME SCREEN ══════════════ -->
+<div id="welcome-screen">
+  <div class="welcome-box">
+    <img class="welcome-logo" src="https://res.cloudinary.com/dxcxcmzh2/image/upload/v1/gt_nutri_bites/logo" alt="GT Nutri Bites" onerror="this.style.background='#1e5c30';this.innerHTML='🌿';this.style.display='flex';this.style.alignItems='center';this.style.justifyContent='center';this.style.fontSize='32px'"/>
+    <h1 class="welcome-title">GT Nutri Bites<br/>Label Studio</h1>
+    <p class="welcome-sub">Design beautiful, professional labels for your premium nuts & seeds packaging. Print, export, or generate full A4 sticker sheets.</p>
+    <div class="welcome-features">
+      <div class="wf-card">
+        <div class="wfc-ico">🏷️</div>
+        <div class="wfc-title">8 Label Types</div>
+        <div class="wfc-desc">Thank You, Delivery, Product, Promo & more</div>
+      </div>
+      <div class="wf-card">
+        <div class="wfc-ico">📄</div>
+        <div class="wfc-title">A4 Sheet Printing</div>
+        <div class="wfc-desc">Print multiple labels on sticker sheets with cut guides</div>
+      </div>
+      <div class="wf-card">
+        <div class="wfc-ico">📦</div>
+        <div class="wfc-title">Batch Processing</div>
+        <div class="wfc-desc">Upload CSV to generate hundreds of labels at once</div>
+      </div>
+      <div class="wf-card">
+        <div class="wfc-ico">🎨</div>
+        <div class="wfc-title">Full Customization</div>
+        <div class="wfc-desc">Colors, fonts, logos, sizes — complete creative control</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="padding:14px 40px;font-size:15px;border-radius:12px;" onclick="startApp()">
+      ✨ Start Designing
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ TOAST AREA ══════════════ -->
+<div id="toasts" aria-live="polite"></div>
+
+<!-- ══════════════ LOADING ══════════════ -->
+<div id="loading" role="progressbar">
+  <div class="spinner"></div>
+  <div class="load-text" id="load-text">Processing…</div>
+  <div class="load-sub" id="load-sub"></div>
+  <div class="load-bar-track"><div class="load-bar-fill" id="load-bar"></div></div>
+</div>
+
+<!-- ══════════════ PRINT ROOT ══════════════ -->
+<div id="print-root"></div>
+
+<!-- ══════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════ -->
+
+<!-- Sheet Preview Modal -->
+<div class="modal-overlay" id="sheet-modal" onclick="if(event.target===this)closeModal('sheet-modal')">
+  <div class="modal modal-large">
+    <div class="modal-head">
+      <div class="modal-title">📄 A4 Sheet Preview</div>
+      <button class="modal-close" onclick="closeModal('sheet-modal')">✕</button>
+    </div>
+    <div class="modal-body" style="background:var(--n50);padding:20px;display:flex;align-items:flex-start;justify-content:center;overflow:auto">
+      <div id="sheet-modal-content" style="transform-origin:top center"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('sheet-modal')">Close</button>
+      <button class="btn btn-primary" onclick="printA4Sheet()">🖨 Print This Sheet</button>
+      <button class="btn btn-honey" onclick="exportSheetPDF()">⬇ Export PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Preview Modal -->
+<div class="modal-overlay" id="batch-modal" onclick="if(event.target===this)closeModal('batch-modal')">
+  <div class="modal modal-large">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">📦 Batch Preview</div>
+        <div id="batch-modal-count" style="font-size:13px;color:var(--n400);margin-top:2px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('batch-modal')">✕</button>
+    </div>
+    <div class="modal-body" style="background:var(--n50);">
+      <div id="batch-prev-grid" style="display:flex;flex-wrap:wrap;gap:12px;padding:4px;justify-content:center;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('batch-modal')">Close</button>
+      <button class="btn btn-primary" onclick="batchPrint()">🖨 Print All</button>
+      <button class="btn btn-honey" onclick="batchPDF()">⬇ Export PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- CSV Helper Modal -->
+<div class="modal-overlay" id="csv-modal" onclick="if(event.target===this)closeModal('csv-modal')">
+  <div class="modal modal-medium">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">📋 CSV Template Helper</div>
+        <div style="font-size:13px;color:var(--n400);margin-top:2px;">Download a template, fill it in, then upload</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('csv-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--n500);margin-bottom:14px;">Select a label type to get its CSV template:</p>
+      <div id="csv-type-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;"></div>
+      <div id="csv-template-preview" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div id="csv-type-name" style="font-weight:700;font-size:14px;color:var(--n800);"></div>
+          <span id="csv-cols-badge" class="badge badge-gray"></span>
+        </div>
+        <pre id="csv-pre" style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--n50);border:1px solid var(--n200);border-radius:8px;padding:12px;overflow-x:auto;white-space:pre;color:var(--g800);max-height:200px;overflow-y:auto;line-height:1.7;"></pre>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('csv-modal')">Close</button>
+      <button class="btn btn-primary" id="csv-dl-btn" onclick="downloadCSV()" disabled>⬇ Download Template</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shortcuts Modal -->
+<div class="modal-overlay" id="shortcuts-modal" onclick="if(event.target===this)closeModal('shortcuts-modal')">
+  <div class="modal modal-small">
+    <div class="modal-head">
+      <div class="modal-title">⌨ Keyboard Shortcuts</div>
+      <button class="modal-close" onclick="closeModal('shortcuts-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+        <tr><td style="padding:8px 0;color:var(--n500);">Print single label</td><td style="text-align:right"><span class="kbd">Ctrl</span>+<span class="kbd">P</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Print A4 sheet</td><td style="text-align:right"><span class="kbd">Ctrl</span>+<span class="kbd">⇧P</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Save design</td><td style="text-align:right"><span class="kbd">Ctrl</span>+<span class="kbd">S</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Undo</td><td style="text-align:right"><span class="kbd">Ctrl</span>+<span class="kbd">Z</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Redo</td><td style="text-align:right"><span class="kbd">Ctrl</span>+<span class="kbd">Y</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Zoom in / out</td><td style="text-align:right"><span class="kbd">+</span> / <span class="kbd">-</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Fit to view</td><td style="text-align:right"><span class="kbd">0</span></td></tr>
+        <tr style="border-top:1px solid var(--n50)"><td style="padding:8px 0;color:var(--n500);">Close modals</td><td style="text-align:right"><span class="kbd">Esc</span></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ── TOP BAR ── -->
+  <header id="topbar">
+    <div class="topbar-brand">
+      <img src="https://res.cloudinary.com/dxcxcmzh2/image/upload/v1/gt_nutri_bites/logo" class="topbar-logo" alt="GT" onerror="this.style.cssText='width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px';this.textContent='🌿'"/>
+      <span class="topbar-name">Label Studio <span>by GT Nutri Bites</span></span>
+    </div>
+
+    <nav id="workflow-nav" aria-label="Workflow steps">
+      <button class="wf-step active" data-panel="design" onclick="switchPanel('design',this)">
+        <span class="wf-num">1</span>Design Label
+      </button>
+      <div class="wf-sep"></div>
+      <button class="wf-step" data-panel="batch" onclick="switchPanel('batch',this)">
+        <span class="wf-num">2</span>Batch Labels
+      </button>
+      <div class="wf-sep"></div>
+      <button class="wf-step" data-panel="sheet" onclick="switchPanel('sheet',this)">
+        <span class="wf-num">3</span>A4 Sheet
+      </button>
+    </nav>
+
+    <div class="topbar-actions">
+      <button class="tb-ghost topbar-btn btn-sm" onclick="undoState()" id="undo-btn" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
+      <button class="tb-ghost topbar-btn btn-sm" onclick="redoState()" id="redo-btn" title="Redo (Ctrl+Y)" disabled>↪ Redo</button>
+      <div style="width:1px;height:24px;background:rgba(255,255,255,.12);margin:0 6px;"></div>
+      <button class="tb-ghost topbar-btn" onclick="saveDesign()" title="Save (Ctrl+S)">💾 Save</button>
+      <button class="tb-honey topbar-btn" onclick="printSingle()" title="Print (Ctrl+P)">🖨 Print</button>
+      <div style="width:1px;height:24px;background:rgba(255,255,255,.12);margin:0 6px;"></div>
+      <button class="tb-icon" onclick="toggleDark()" title="Toggle dark mode" id="dark-btn">🌙</button>
+      <button class="tb-icon" onclick="openModal('shortcuts-modal')" title="Keyboard shortcuts">⌨</button>
+    </div>
+  </header>
+
+  <!-- ══════════════ LEFT PANEL — LABEL CONTENT ══════════════ -->
+  <aside id="left-panel" aria-label="Label content">
+
+    <div class="panel-header">
+      <div class="panel-title">
+        <span>🏷️</span> Label Content
+      </div>
+      <div class="panel-subtitle">Choose a type, then fill in your details</div>
+    </div>
+
+    <!-- Label type grid -->
+    <div id="type-scroller"></div>
+
+    <div class="divider" style="margin:0"></div>
+
+    <!-- Dynamic fields -->
+    <div class="fields-area" id="fields-area">
+      <div id="dyn-fields" style="padding-top:14px;"></div>
+    </div>
+
+    <!-- Footer actions -->
+    <div class="panel-footer">
+      <div class="two-col">
+        <button class="btn btn-outline btn-sm" onclick="clearFields()">🗑 Clear</button>
+        <button class="btn btn-primary btn-sm" onclick="fillSample()">✨ Fill Sample</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════ CANVAS AREA ══════════════ -->
+  <main id="canvas-area" aria-label="Preview canvas">
+    <!-- Background grid -->
+    <div class="canvas-bg-grid"></div>
+
+    <!-- Size badge -->
+    <div id="size-badge">4" × 2.5"</div>
+
+    <!-- Design panel (default) -->
+    <div id="panel-design" class="workflow-panel active">
+      <div class="canvas-center">
+        <div id="label-canvas" role="img" aria-label="Label preview">
+          <div id="label-inner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch panel -->
+    <div id="panel-batch" class="workflow-panel">
+      <div class="batch-container">
+        <div class="batch-header">
+          <h2 class="batch-title">Batch Label Generator</h2>
+          <p class="batch-subtitle">Upload a CSV file to generate labels for multiple orders or products at once. Your current design settings (colors, fonts, logo) will be applied to all labels.</p>
+        </div>
+
+        <div class="steps-grid">
+          <!-- Step 1: Choose type -->
+          <div class="step-card" id="bstep1">
+            <div class="step-num">1</div>
+            <span class="step-check">✅</span>
+            <div class="step-title">Choose Label Type</div>
+            <div class="step-desc">Select what kind of label you want to batch-generate.</div>
+            <select class="finput" id="batch-type" onchange="onBatchTypeChange(this.value)">
+              <option value="">— Select type —</option>
+            </select>
+          </div>
+
+          <!-- Step 2: Get template -->
+          <div class="step-card" id="bstep2">
+            <div class="step-num">2</div>
+            <span class="step-check">✅</span>
+            <div class="step-title">Download & Fill Template</div>
+            <div class="step-desc">Get the CSV template for your chosen label type, fill in your data.</div>
+            <button class="btn btn-outline btn-sm btn-full" id="get-template-btn" onclick="openCSVHelper()" disabled>📋 Get CSV Template</button>
+          </div>
+
+          <!-- Step 3: Upload -->
+          <div class="step-card" id="bstep3">
+            <div class="step-num">3</div>
+            <span class="step-check">✅</span>
+            <div class="step-title">Upload Your CSV</div>
+            <div class="step-desc">Upload your filled CSV and we'll generate all the labels.</div>
+            <div class="upload-zone" id="batch-upload-zone" onclick="document.getElementById('batch-file').click()">
+              <div class="uz-ico">📁</div>
+              <div class="uz-main">Click to upload CSV</div>
+              <div class="uz-sub">or drag & drop here</div>
+            </div>
+            <input type="file" id="batch-file" accept=".csv" style="display:none" onchange="handleBatchFile(this)"/>
+          </div>
+        </div>
+
+        <!-- Status/results -->
+        <div id="batch-result" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:16px;font-weight:700;color:var(--n800);" id="batch-result-title">Labels ready</h3>
+              <div style="font-size:13px;color:var(--n500);" id="batch-result-sub"></div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-outline btn-sm" onclick="openBatchPreview()">👁 Preview</button>
+              <button class="btn btn-outline btn-sm" onclick="clearBatch()">🗑 Clear</button>
+            </div>
+          </div>
+          <div class="prog-track"><div class="prog-fill" id="batch-prog"></div></div>
+          <div id="batch-list" style="max-height:280px;overflow-y:auto;"></div>
+          <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="batchPrint()">🖨 Print All Labels</button>
+            <button class="btn btn-honey" onclick="batchPDF()">⬇ Export as PDF</button>
+            <button class="btn btn-outline" onclick="batchPNGs()">🖼 Export PNGs</button>
+            <button class="btn btn-outline" onclick="switchPanel('sheet', document.querySelector('[data-panel=sheet]'))">📄 Print as A4 Sheet →</button>
+          </div>
+        </div>
+
+        <div id="batch-empty" style="display:flex;">
+          <div class="callout callout-green" style="width:100%;margin-top:0">
+            <span class="callout-ico">💡</span>
+            <div><strong>Tip:</strong> Your current <strong>Design settings</strong> (colors, fonts, logo) apply to all batch labels. Set your design first, then batch generate for consistent branding across all labels.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sheet panel -->
+    <div id="panel-sheet" class="workflow-panel">
+      <div class="sheet-container">
+        <div class="batch-header">
+          <h2 class="batch-title">A4 Sticker Sheet Printer</h2>
+          <p class="batch-subtitle">Arrange multiple labels on a standard A4 sheet (210×297mm) for sticker paper printing. Print, then cut along the guides.</p>
+        </div>
+
+        <div class="sheet-layout">
+          <!-- Config column -->
+          <div>
+            <div class="sheet-config">
+              <div class="sheet-config-title">⚙️ Layout Configuration</div>
+
+              <!-- Source -->
+              <div class="control-row">
+                <div class="control-label">Label Source</div>
+                <div class="source-tabs">
+                  <div class="source-tab active" id="src-single" onclick="setSheetSrc('single')">
+                    <div class="st-ico">🏷️</div>
+                    <div class="st-label">Current Label</div>
+                  </div>
+                  <div class="source-tab" id="src-batch" onclick="setSheetSrc('batch')">
+                    <div class="st-ico">📦</div>
+                    <div class="st-label">Batch CSV <span id="batch-src-cnt"></span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="copies-row" class="control-row">
+                <div class="control-label">Number of Copies</div>
+                <input type="number" class="num-input" id="sheet-copies" value="8" min="1" max="100" oninput="scheduleSheetUpdate()"/>
+                <div style="font-size:11.5px;color:var(--n400);margin-top:4px;">Grid fills automatically. Extras left blank.</div>
+              </div>
+
+              <!-- Grid -->
+              <div class="two-col" style="margin-bottom:14px;">
+                <div>
+                  <div class="control-label">Columns</div>
+                  <input type="number" class="num-input" id="sheet-cols" value="2" min="1" max="6" oninput="scheduleSheetUpdate()"/>
+                </div>
+                <div>
+                  <div class="control-label">Rows</div>
+                  <input type="number" class="num-input" id="sheet-rows" value="4" min="1" max="10" oninput="scheduleSheetUpdate()"/>
+                </div>
+              </div>
+
+              <!-- Margin -->
+              <div class="control-row">
+                <div class="control-label">Page Margin <span class="control-val" id="margin-v">8mm</span></div>
+                <input type="range" id="sheet-margin" min="2" max="20" value="8" oninput="document.getElementById('margin-v').textContent=this.value+'mm';scheduleSheetUpdate()"/>
+              </div>
+
+              <!-- Gap -->
+              <div class="control-row">
+                <div class="control-label">Gap Between Labels <span class="control-val" id="gap-v">4mm</span></div>
+                <input type="range" id="sheet-gap" min="0" max="15" value="4" oninput="document.getElementById('gap-v').textContent=this.value+'mm';scheduleSheetUpdate()"/>
+              </div>
+
+              <!-- Toggles -->
+              <div style="border-top:1px solid var(--n100);padding-top:12px;">
+                <div class="toggle-row">
+                  <div><div class="toggle-label">Cutting guides</div><div class="toggle-desc">Show cut marks at label corners</div></div>
+                  <label class="tog-wrap"><input type="checkbox" id="sheet-cuts" checked onchange="scheduleSheetUpdate()"/><span class="tog-track"></span></label>
+                </div>
+                <div class="toggle-row">
+                  <div><div class="toggle-label">Landscape orientation</div><div class="toggle-desc">Rotate A4 to horizontal</div></div>
+                  <label class="tog-wrap"><input type="checkbox" id="sheet-landscape" onchange="scheduleSheetUpdate()"/><span class="tog-track"></span></label>
+                </div>
+              </div>
+
+              <!-- Sheet info -->
+              <div id="sheet-info" class="callout callout-green" style="margin-top:14px;font-size:12px;"></div>
+            </div>
+
+            <!-- Actions -->
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-honey btn-full" onclick="previewSheetModal()">👁 Preview Sheet</button>
+              <button class="btn btn-primary btn-full" onclick="printA4Sheet()">🖨 Print A4 Sheet</button>
+              <button class="btn btn-outline btn-full" onclick="exportSheetPDF()">⬇ Export as PDF</button>
+            </div>
+
+            <div class="callout callout-honey" style="margin-top:12px;">
+              <span class="callout-ico">🖨</span>
+              <div style="font-size:12px;"><strong>Tip:</strong> Use A4 sticker paper. Set printer to "Actual size" (not "Fit to page") for accurate measurements. Cut along the guide marks.</div>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div class="sheet-preview-wrap">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <div style="font-size:14px;font-weight:700;color:var(--n700);">Live Preview</div>
+              <span id="sheet-cell-count" class="badge badge-green">0 labels</span>
+            </div>
+            <div class="sheet-preview-inner" id="sheet-preview-inner">
+              <div class="empty-state">
+                <div class="es-ico">📄</div>
+                <div class="es-text">Configure layout to see preview</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zoom toolbar (always visible in design mode) -->
+    <div id="canvas-toolbar">
+      <button class="ct-btn" onclick="zoom(-0.1)" title="Zoom out (-)">−</button>
+      <span class="ct-label" id="zoom-label">100%</span>
+      <button class="ct-btn" onclick="zoom(0.1)" title="Zoom in (+)">+</button>
+      <div class="ct-sep"></div>
+      <button class="ct-btn" onclick="fitZoom()" title="Fit to view (0)">⊡ Fit</button>
+      <div class="ct-sep"></div>
+      <button class="ct-btn" onclick="printSingle()" title="Print">🖨</button>
+      <button class="ct-btn" onclick="dlPDF()">⬇ PDF</button>
+      <button class="ct-btn" onclick="dlPNG()">🖼 PNG</button>
+    </div>
+  </main>
+
+  <!-- ══════════════ RIGHT PANEL — DESIGN ══════════════ -->
+  <aside id="right-panel" aria-label="Design settings">
+
+    <div class="panel-header">
+      <div class="panel-title"><span>🎨</span> Design Settings</div>
+      <div class="panel-subtitle">Customize appearance</div>
+    </div>
+
+    <!-- ── SIZE ── -->
+    <div class="acc-section">
+      <div class="acc-header open" onclick="toggleAcc(this)">
+        <div class="acc-title"><span class="acc-icon">📐</span> Label Size</div>
+        <span class="acc-caret">▼</span>
+      </div>
+      <div class="acc-body open">
+        <div class="acc-content">
+          <div class="control-row">
+            <div class="control-label">Presets</div>
+            <div class="size-pills" id="size-pills">
+              <div class="size-pill" data-w="2" data-h="1" onclick="setSize(2,1,this)">2×1"</div>
+              <div class="size-pill active" data-w="4" data-h="2.5" onclick="setSize(4,2.5,this)">4×2.5"</div>
+              <div class="size-pill" data-w="4" data-h="6" onclick="setSize(4,6,this)">4×6"</div>
+              <div class="size-pill" data-w="6" data-h="4" onclick="setSize(6,4,this)">6×4"</div>
+            </div>
+          </div>
+          <div class="two-col">
+            <div>
+              <div class="control-label">Width (in)</div>
+              <input class="finput" type="number" id="lbl-w" value="4" step="0.25" min="1" max="12" oninput="S.width=parseFloat(this.value)||4;debUpdate()"/>
+            </div>
+            <div>
+              <div class="control-label">Height (in)</div>
+              <input class="finput" type="number" id="lbl-h" value="2.5" step="0.25" min="0.5" max="12" oninput="S.height=parseFloat(this.value)||2.5;debUpdate()"/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COLOR THEME ── -->
+    <div class="acc-section">
+      <div class="acc-header open" onclick="toggleAcc(this)">
+        <div class="acc-title"><span class="acc-icon">🎨</span> Color Theme</div>
+        <span class="acc-caret">▼</span>
+      </div>
+      <div class="acc-body open">
+        <div class="acc-content">
+          <div class="control-row">
+            <div class="control-label">Theme Presets</div>
+            <div class="preset-row" id="theme-presets">
+              <div class="preset-pill active" data-preset="brand" onclick="applyPreset('brand',this)">Brand</div>
+              <div class="preset-pill" data-preset="dark" onclick="applyPreset('dark',this)">Dark</div>
+              <div class="preset-pill" data-preset="honey" onclick="applyPreset('honey',this)">Honey</div>
+              <div class="preset-pill" data-preset="ivory" onclick="applyPreset('ivory',this)">Ivory</div>
+              <div class="preset-pill" data-preset="kraft" onclick="applyPreset('kraft',this)">Kraft</div>
+              <div class="preset-pill" data-preset="bold" onclick="applyPreset('bold',this)">Bold</div>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Background</div>
+            <div class="color-row">
+              <div class="color-swatch"><input type="color" id="c-bg" value="#ffffff" oninput="applyColor('bg',this.value)"/></div>
+              <div style="flex:1">
+                <div class="quick-colors" id="qs-bg"></div>
+              </div>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Text Color</div>
+            <div class="color-row">
+              <div class="color-swatch"><input type="color" id="c-txt" value="#1a1a0e" oninput="applyColor('txt',this.value)"/></div>
+              <div style="flex:1"><div class="quick-colors" id="qs-txt"></div></div>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Accent Color</div>
+            <div class="color-row">
+              <div class="color-swatch"><input type="color" id="c-acc" value="#1e4d2b" oninput="applyColor('acc',this.value)"/></div>
+              <div style="flex:1"><div class="quick-colors" id="qs-acc"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TYPOGRAPHY ── -->
+    <div class="acc-section">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <div class="acc-title"><span class="acc-icon">✍️</span> Typography</div>
+        <span class="acc-caret">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="control-row">
+            <div class="control-label">Font Family</div>
+            <select class="finput" id="font-fam" onchange="S.fontFam=this.value;pushHist();debUpdate()">
+              <option value="'Inter',sans-serif">Inter (Modern)</option>
+              <option value="'Nunito',sans-serif">Nunito (Rounded)</option>
+              <option value="'Playfair Display',serif">Playfair Display (Elegant)</option>
+              <option value="Georgia,serif">Georgia (Classic)</option>
+              <option value="'Courier New',monospace">Courier New (Typewriter)</option>
+              <option value="Arial,sans-serif">Arial (Simple)</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Font Size <span class="control-val" id="fs-v">13px</span></div>
+            <input type="range" id="font-sz" min="9" max="22" value="13" oninput="S.fontSize=parseInt(this.value);document.getElementById('fs-v').textContent=this.value+'px';debUpdate()"/>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Font Weight</div>
+            <select class="finput" id="font-wt" onchange="S.fontWt=this.value;debUpdate()">
+              <option value="300">Light</option>
+              <option value="400" selected>Regular</option>
+              <option value="600">Semi-Bold</option>
+              <option value="700">Bold</option>
+              <option value="800">Extra Bold</option>
+            </select>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Line Height <span class="control-val" id="lh-v">1.4</span></div>
+            <input type="range" id="line-h" min="10" max="22" value="14" oninput="S.lineH=this.value/10;document.getElementById('lh-v').textContent=(this.value/10).toFixed(1);debUpdate()"/>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Text Alignment</div>
+            <div class="align-btns">
+              <button class="align-btn active" data-a="left" onclick="setAlign('left',this)" title="Left">⬅</button>
+              <button class="align-btn" data-a="center" onclick="setAlign('center',this)" title="Center">⬆</button>
+              <button class="align-btn" data-a="right" onclick="setAlign('right',this)" title="Right">➡</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOGO ── -->
+    <div class="acc-section">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <div class="acc-title"><span class="acc-icon">🖼️</span> Logo</div>
+        <span class="acc-caret">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="toggle-row" style="margin-bottom:12px;">
+            <div class="toggle-label">Show Logo</div>
+            <label class="tog-wrap"><input type="checkbox" id="show-logo" checked onchange="S.showLogo=this.checked;pushHist();debUpdate()"/><span class="tog-track"></span></label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Position</div>
+            <div class="logo-grid">
+              <div class="logo-cell active" data-p="tl-block" onclick="setLogPos('tl-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="tc-inline" onclick="setLogPos('tc-inline',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="tr-block" onclick="setLogPos('tr-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="ml-block" onclick="setLogPos('ml-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="mc-block" onclick="setLogPos('mc-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="mr-block" onclick="setLogPos('mr-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="bl-block" onclick="setLogPos('bl-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="bc-block" onclick="setLogPos('bc-block',this)"><div class="dot"></div></div>
+              <div class="logo-cell" data-p="br-block" onclick="setLogPos('br-block',this)"><div class="dot"></div></div>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Size <span class="control-val" id="logo-sz-v">72px</span></div>
+            <input type="range" id="logo-sz" min="24" max="160" value="72" oninput="S.logoSize=parseInt(this.value);document.getElementById('logo-sz-v').textContent=this.value+'px';debUpdate()"/>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Opacity <span class="control-val" id="logo-op-v">100%</span></div>
+            <input type="range" id="logo-op" min="10" max="100" value="100" oninput="S.logoOp=parseInt(this.value);document.getElementById('logo-op-v').textContent=this.value+'%';debUpdate()"/>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Roundness <span class="control-val" id="logo-rd-v">0%</span></div>
+            <input type="range" id="logo-rd" min="0" max="50" value="0" oninput="S.logoRad=parseInt(this.value);document.getElementById('logo-rd-v').textContent=this.value+'%';debUpdate()"/>
+          </div>
+          <div>
+            <div class="control-label" style="margin-bottom:6px;">Custom Logo</div>
+            <label style="cursor:pointer;">
+              <div class="btn btn-outline btn-sm btn-full">📁 Upload Image</div>
+              <input type="file" accept="image/*" style="display:none" onchange="handleLogoUpload(this)"/>
+            </label>
+            <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px;" onclick="resetLogo()">↩ Reset to Default Logo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BORDER & EXTRAS ── -->
+    <div class="acc-section">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <div class="acc-title"><span class="acc-icon">🔲</span> Border & Extras</div>
+        <span class="acc-caret">▼</span>
+      </div>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="control-row">
+            <div class="control-label">Padding <span class="control-val" id="pad-v">14px</span></div>
+            <input type="range" id="lbl-pad" min="4" max="36" value="14" oninput="S.padding=parseInt(this.value);document.getElementById('pad-v').textContent=this.value+'px';debUpdate()"/>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Corner Radius <span class="control-val" id="cr-v">0px</span></div>
+            <input type="range" id="corner-r" min="0" max="32" value="0" oninput="S.cornerR=parseInt(this.value);document.getElementById('cr-v').textContent=this.value+'px';debUpdate()"/>
+          </div>
+          <div class="two-col" style="margin-bottom:12px;">
+            <div>
+              <div class="control-label">Border Style</div>
+              <select class="finput" id="bdr-style" onchange="S.bdrStyle=this.value;debUpdate()">
+                <option value="none">None</option>
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+                <option value="double">Double</option>
+              </select>
+            </div>
+            <div>
+              <div class="control-label">Width</div>
+              <input type="range" id="bdr-w" min="1" max="6" value="1" oninput="S.bdrW=parseInt(this.value);debUpdate()" style="margin-top:10px;"/>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Border Color</div>
+            <div class="color-row">
+              <div class="color-swatch"><input type="color" id="c-bdr" value="#1e4d2b" oninput="S.bdrColor=this.value;debUpdate()"/></div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Leaf accent bar</div><div class="toggle-desc">Green decorative line</div></div>
+            <label class="tog-wrap"><input type="checkbox" id="leaf-bar" checked onchange="S.leafBar=this.checked;debUpdate()"/><span class="tog-track"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Brand watermark</div><div class="toggle-desc">Faint "GT Nutri Bites" text</div></div>
+            <label class="tog-wrap"><input type="checkbox" id="wm-tog" checked onchange="S.watermark=this.checked;debUpdate()"/><span class="tog-track"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save/Load footer -->
+    <div style="padding:14px 20px;border-top:1px solid var(--n100);display:flex;gap:8px;margin-top:auto;">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="saveDesign()">💾 Save</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="loadDesign()">📂 Load</button>
+    </div>
+    <div id="autosave-label" style="text-align:center;font-size:11px;color:var(--n400);padding:4px 16px 10px;font-family:'JetBrains Mono',monospace;">Auto-save: ready</div>
+  </aside>
+
+</div><!-- /app -->
+
+<script>
+/* ═══════════════════════════════════════════════
+   CONSTANTS & DATA
+═══════════════════════════════════════════════ */
+const DPI = 96;
+const PX_PER_MM = 3.7795275591;
+const BRAND_LOGO = 'https://res.cloudinary.com/dxcxcmzh2/image/upload/v1/gt_nutri_bites/logo';
+
+const BRAND = {
+  name:'GT Nutri Bites', phone:'+94 77 000 0000',
+  email:'info@gtnutribites.com', website:'gt-nutri-bites.github.io',
+  address:'Colombo, Sri Lanka',
+};
+
+const TYPES = [
+  {id:'thankyou',   ico:'🙏',  name:'Thank You'},
+  {id:'welcome',    ico:'👋',  name:'Welcome'},
+  {id:'delivery',   ico:'📬',  name:'Delivery'},
+  {id:'del-ret',    ico:'↩',  name:'Del + Return'},
+  {id:'product',    ico:'🥜',  name:'Product'},
+  {id:'contact',    ico:'📞',  name:'Contact'},
+  {id:'promo',      ico:'🎁',  name:'Promo'},
+  {id:'ingredient', ico:'🥗',  name:'Nutrition'},
+];
+
+const FIELDS = {
+  thankyou: [
+    {id:'customer-name', label:'Customer Name',     ph:'Jane Smith',              req:true},
+    {id:'order-no',      label:'Order Number',       ph:'ORD-2024-001',           req:false},
+    {id:'thank-msg',     label:'Thank You Message',  ph:'We truly appreciate your support…', req:false, ta:true},
+    {id:'discount-code', label:'Discount Code',      ph:'THANKS10',               req:false},
+    {id:'discount-note', label:'Discount Details',   ph:'10% off your next order',req:false},
+    {id:'social',        label:'Social Handle',      ph:'@gtnutribites',          req:false},
+  ],
+  welcome: [
+    {id:'customer-name', label:'Customer Name',     ph:'Jane Smith',              req:false},
+    {id:'welcome-msg',   label:'Welcome Message',   ph:'Welcome to the GT Nutri Bites family! 🌱', req:false, ta:true},
+    {id:'offer',         label:'Welcome Offer',     ph:'10% off your first order — use code: WELCOME10', req:false},
+    {id:'social',        label:'Social Handle',     ph:'@gtnutribites',           req:false},
+  ],
+  delivery: [
+    {id:'sender-name', label:'Sender / From',    ph:'GT Nutri Bites',            req:true},
+    {id:'sender-addr', label:'Sender Address',   ph:'Colombo, Sri Lanka',        req:false, ta:true},
+    {id:'recv-name',   label:'Recipient Name',   ph:'Jane Smith',                req:true},
+    {id:'recv-addr',   label:'Recipient Address',ph:'123 Main St, Colombo 03',  req:true, ta:true},
+    {id:'order-no',    label:'Order Number',     ph:'ORD-2024-001',             req:false},
+    {id:'tracking',    label:'Tracking Number',  ph:'TRK-1234567',              req:false},
+    {id:'method',      label:'Shipping Method',  ph:'Standard (3–5 days)',      req:false},
+    {id:'weight',      label:'Package Weight',   ph:'500g',                     req:false},
+  ],
+  'del-ret': [
+    {id:'sender-name', label:'Sender Name',       ph:'GT Nutri Bites',          req:true},
+    {id:'recv-name',   label:'Recipient Name',    ph:'Jane Smith',               req:true},
+    {id:'recv-addr',   label:'Delivery Address',  ph:'123 Main St, Colombo 03', req:true, ta:true},
+    {id:'order-no',    label:'Order Number',      ph:'ORD-2024-001',            req:false},
+    {id:'del-date',    label:'Delivery Date',     ph:'Jan 20–22, 2025',         req:false},
+    {id:'ret-addr',    label:'Return Address',    ph:'GT Nutri Bites Returns, Colombo', req:false, ta:true},
+    {id:'ret-by',      label:'Return By Date',    ph:'Feb 20, 2025',            req:false},
+    {id:'ret-policy',  label:'Return Policy Note',ph:'Items must be unopened.',  req:false},
+  ],
+  product: [
+    {id:'prod-name',   label:'Product Name',     ph:'Organic Raw Almonds',       req:true},
+    {id:'variant',     label:'Variant / Type',   ph:'Raw · Unsalted',            req:false},
+    {id:'weight',      label:'Net Weight',       ph:'500g / 17.6oz',             req:false},
+    {id:'price',       label:'Price',            ph:'Rs. 6,267',                 req:false},
+    {id:'desc',        label:'Description',      ph:'Premium California almonds…',req:false, ta:true},
+    {id:'ingredients', label:'Ingredients',      ph:'100% Organic Almonds',      req:false},
+    {id:'allergens',   label:'Allergens',        ph:'Contains: Tree Nuts',       req:false},
+    {id:'storage',     label:'Storage',          ph:'Store in cool, dry place',  req:false},
+    {id:'best-before', label:'Best Before',      ph:'Dec 2025',                  req:false},
+    {id:'batch-no',    label:'Batch Number',     ph:'LOT-2024-001',              req:false},
+    {id:'sku',         label:'SKU',              ph:'GNB-ALM-500',               req:false},
+    {id:'cert',        label:'Certifications',   ph:'100% Organic · Vegan',      req:false},
+  ],
+  contact: [
+    {id:'comp-name', label:'Company / Person',  ph:'GT Nutri Bites',            req:true},
+    {id:'phone',     label:'Phone',             ph:'+94 77 000 0000',           req:false},
+    {id:'email',     label:'Email',             ph:'info@gtnutribites.com',     req:false},
+    {id:'website',   label:'Website',           ph:'gt-nutri-bites.github.io', req:false},
+    {id:'address',   label:'Address',           ph:'Colombo, Sri Lanka',        req:false, ta:true},
+    {id:'hours',     label:'Business Hours',    ph:'Mon–Fri: 9AM–6PM',         req:false},
+    {id:'social',    label:'Social Media',      ph:'@gtnutribites',             req:false},
+    {id:'cta',       label:'Call to Action',    ph:'Scan to shop online!',      req:false},
+  ],
+  promo: [
+    {id:'headline',  label:'Headline / Offer',  ph:'🎉 Special Offer!',         req:true},
+    {id:'code',      label:'Promo Code',        ph:'NUTS20',                    req:false},
+    {id:'discount',  label:'Discount Amount',   ph:'20% OFF',                   req:false},
+    {id:'details',   label:'Offer Details',     ph:'Valid on orders over Rs. 2,000.', req:false, ta:true},
+    {id:'expiry',    label:'Valid Until',        ph:'Valid until Dec 31, 2025', req:false},
+    {id:'social',    label:'Social Handle',     ph:'@gtnutribites',             req:false},
+  ],
+  ingredient: [
+    {id:'prod-name', label:'Product Name',       ph:'Organic Raw Almonds',      req:true},
+    {id:'serving',   label:'Serving Size',       ph:'30g (about 23 almonds)',   req:false},
+    {id:'calories',  label:'Calories / Serving', ph:'174 kcal',                 req:false},
+    {id:'protein',   label:'Protein',            ph:'6.3g',                     req:false},
+    {id:'fat',       label:'Total Fat',          ph:'15.1g',                    req:false},
+    {id:'carbs',     label:'Total Carbs',        ph:'5.9g',                     req:false},
+    {id:'fiber',     label:'Dietary Fiber',      ph:'2.7g',                     req:false},
+    {id:'sugar',     label:'Sugars',             ph:'1.5g',                     req:false},
+    {id:'sodium',    label:'Sodium',             ph:'0mg',                      req:false},
+    {id:'vitamins',  label:'Key Vitamins',       ph:'Vitamin E, Magnesium',     req:false},
+    {id:'cert',      label:'Certifications',     ph:'100% Organic · Vegan',     req:false},
+  ],
+};
+
+const CSV_SAMPLES = {
+  thankyou:   [['Jane','ORD-2024-001','Thank you so much for your order! 🌿','THANKS10','10% off your next order','@gtnutribites']],
+  welcome:    [['Jane Smith','Welcome to the GT Nutri Bites family! 🌱','10% off first order — WELCOME10','@gtnutribites']],
+  delivery:   [['GT Nutri Bites','Colombo Sri Lanka','Jane Smith','123 Main St, Colombo 03','ORD-2024-001','TRK-1234567','Standard 3–5 days','500g']],
+  'del-ret':  [['GT Nutri Bites','Jane Smith','123 Main St Colombo 03','ORD-2024-001','Jan 20–22 2025','GT Nutri Bites Returns Colombo','Feb 20 2025','Items must be unopened.']],
+  product:    [['Organic Raw Almonds','Raw Unsalted','500g','Rs. 6267','Premium California almonds.','100% Organic Almonds','Contains: Tree Nuts','Store in cool dry place','Dec 2025','LOT-2024-001','GNB-ALM-500','100% Organic']],
+  contact:    [['GT Nutri Bites','+94 77 000 0000','info@gtnutribites.com','gt-nutri-bites.github.io','Colombo Sri Lanka','Mon-Fri 9AM-6PM','@gtnutribites','Scan to shop!']],
+  promo:      [['Limited Time Offer!','NUTS20','20% OFF','Valid on all nut selections over Rs. 2000.','Valid until Dec 31 2025','@gtnutribites']],
+  ingredient: [['Organic Raw Almonds','30g about 23 almonds','174 kcal','6.3g','15.1g','5.9g','2.7g','1.5g','0mg','Vitamin E Magnesium','100% Organic Vegan']],
+};
+
+const PRESETS = {
+  brand:  {bg:'#ffffff',txt:'#1a1a0e',acc:'#1e4d2b'},
+  dark:   {bg:'#163820',txt:'#faf8f2',acc:'#c8961e'},
+  honey:  {bg:'#fef9ec',txt:'#3d2b1a',acc:'#c8961e'},
+  ivory:  {bg:'#faf8f2',txt:'#1a1a0e',acc:'#5a8a4a'},
+  kraft:  {bg:'#e8dfc8',txt:'#2d1e06',acc:'#1e4d2b'},
+  bold:   {bg:'#1e4d2b',txt:'#ffffff',acc:'#c8961e'},
+};
+
+const SWATCHES = {
+  bg:  ['#ffffff','#faf8f2','#e8e2d0','#1a2d1a','#1e4d2b','#f5f0e8','#d4e8c8','#2d1e06'],
+  txt: ['#1a1a0e','#1e4d2b','#3d2b1a','#ffffff','#c8961e','#2d5a1b','#4a2010','#6b7a5e'],
+  acc: ['#1e4d2b','#c8961e','#2d6b3c','#88b878','#3d2b1a','#5a8a4a','#a87a14','#163820'],
+};
+
+/* ═══════════════════════════════════════════════
+   APPLICATION STATE
+═══════════════════════════════════════════════ */
+let S = {
+  type:'thankyou',
+  logoPos:'tl-block', logoSize:72, logoOp:100, logoRad:0,
+  showLogo:true, customLogo:null,
+  bgColor:'#ffffff', txtColor:'#1a1a0e', accColor:'#1e4d2b',
+  bdrColor:'#1e4d2b', bdrStyle:'none', bdrW:1,
+  fontFam:"'Inter',sans-serif", fontSize:13, fontWt:'400',
+  align:'left', lineH:1.4, padding:14, cornerR:0,
+  leafBar:true, watermark:true,
+  width:4, height:2.5, zoom:1,
+  fields:{},
+};
+
+let history=[], histIdx=-1;
+let batchData=[];
+let sheetSrc='single';
+let csvTypeSelected=null;
+let debTimer=null;
+let sheetUpdateTimer=null;
+let currentPreset='brand';
+
+/* ═══════════════════════════════════════════════
+   INITIALISATION
+═══════════════════════════════════════════════ */
+function init() {
+  buildTypeGrid();
+  buildDynFields();
+  buildSwatches();
+  buildCSVTypeGrid();
+  buildBatchTypeSelect();
+  prefillBrandFields();
+  pushHist();
+  renderPreview();
+  autoLoadDesign();
+  setInterval(autoSave, 30000);
+  bindKeyboard();
+  updateSheetInfo();
+  scheduleSheetUpdate();
+}
+
+function startApp() {
+  const ws = document.getElementById('welcome-screen');
+  ws.classList.add('out');
+  setTimeout(() => ws.style.display='none', 400);
+}
+
+/* ═══════════════════════════════════════════════
+   PANEL / WORKFLOW SWITCHING
+═══════════════════════════════════════════════ */
+function switchPanel(id, btn) {
+  document.querySelectorAll('.workflow-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  document.querySelectorAll('.wf-step').forEach(s=>s.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Show/hide canvas toolbar
+  document.getElementById('canvas-toolbar').style.display = id==='design' ? 'flex' : 'none';
+  if (id==='sheet') {
+    scheduleSheetUpdate();
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   TYPE GRID
+═══════════════════════════════════════════════ */
+function buildTypeGrid() {
+  const g = document.getElementById('type-scroller');
+  g.innerHTML = '';
+  TYPES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'type-card' + (t.id===S.type?' active':'');
+    el.innerHTML = `<span class="tc-ico">${t.ico}</span><span class="tc-name">${t.name}</span><span class="tc-dot"></span>`;
+    el.setAttribute('role','button');
+    el.setAttribute('tabindex','0');
+    el.setAttribute('aria-label', t.name+' label type');
+    el.onclick = ()=>selectType(t.id);
+    el.onkeydown = e=>{ if(e.key==='Enter'||e.key===' ') selectType(t.id); };
+    g.appendChild(el);
+  });
+}
+
+function selectType(id) {
+  S.type = id;
+  buildTypeGrid();
+  buildDynFields();
+  prefillBrandFields();
+  pushHist();
+  renderPreview();
+}
+
+/* ═══════════════════════════════════════════════
+   DYNAMIC FIELDS
+═══════════════════════════════════════════════ */
+function buildDynFields() {
+  const container = document.getElementById('dyn-fields');
+  container.innerHTML = '';
+  const defs = FIELDS[S.type] || [];
+  if (!defs.length) {
+    container.innerHTML = '<div style="padding:0 20px 16px;font-size:13px;color:var(--n400);">No editable fields for this label type.</div>';
+    return;
+  }
+  defs.forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.className = 'field-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'field-label';
+    lbl.innerHTML = f.label + (f.req ? '<span class="req">*</span>' : '');
+    if (f.ph) {
+      const hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = 'Example';
+      hint.title = f.ph;
+      lbl.appendChild(hint);
+    }
+    wrap.appendChild(lbl);
+    const inp = f.ta ? document.createElement('textarea') : document.createElement('input');
+    inp.className = 'finput';
+    inp.placeholder = f.ph || '';
+    if (!f.ta) inp.type='text';
+    if (f.ta) inp.rows=2;
+    inp.value = S.fields[f.id] !== undefined ? S.fields[f.id] : '';
+    inp.dataset.fid = f.id;
+    inp.setAttribute('aria-label', f.label);
+    inp.addEventListener('input', ()=>{ S.fields[f.id]=inp.value; debUpdate(); });
+    inp.addEventListener('change', ()=>pushHist());
+    wrap.appendChild(inp);
+    container.appendChild(wrap);
+  });
+}
+
+function prefillBrandFields() {
+  if (S.type==='contact' && !S.fields['comp-name']) {
+    Object.assign(S.fields, {
+      'comp-name':BRAND.name,'phone':BRAND.phone,'email':BRAND.email,
+      'website':BRAND.website,'address':BRAND.address,'social':'@gtnutribites','cta':'Scan to shop online!'
+    });
+  }
+  if ((S.type==='delivery'||S.type==='del-ret') && !S.fields['sender-name']) {
+    S.fields['sender-name']=BRAND.name; S.fields['sender-addr']=BRAND.address;
+  }
+  if (S.type==='thankyou' && !S.fields['social']) S.fields['social']='@gtnutribites';
+}
+
+function clearFields() {
+  S.fields={};
+  buildDynFields();
+  pushHist();
+  renderPreview();
+  toast('Fields cleared','info');
+}
+
+function fillSample() {
+  const samples = CSV_SAMPLES[S.type]?.[0] || [];
+  const defs = FIELDS[S.type] || [];
+  defs.forEach((f,i)=>{ if(samples[i]!==undefined) S.fields[f.id]=samples[i]; });
+  buildDynFields();
+  pushHist();
+  renderPreview();
+  toast('Sample data loaded ✨','success');
+}
+
+/* ═══════════════════════════════════════════════
+   SWATCHES
+═══════════════════════════════════════════════ */
+function buildSwatches() {
+  [['bg','qs-bg'],['txt','qs-txt'],['acc','qs-acc']].forEach(([k,id])=>{
+    const c = document.getElementById(id);
+    SWATCHES[k].forEach(hex=>{
+      const el=document.createElement('div');
+      el.className='qc'; el.style.background=hex; el.title=hex;
+      el.onclick=()=>applyColor(k,hex);
+      c.appendChild(el);
+    });
+  });
+}
+
+function buildCSVTypeGrid() {
+  const g = document.getElementById('csv-type-grid');
+  TYPES.forEach(t=>{
+    const el=document.createElement('div');
+    el.style.cssText='border:1.5px solid var(--n200);border-radius:8px;padding:10px 6px;cursor:pointer;text-align:center;font-size:11px;font-weight:600;transition:all .2s;background:var(--cream);color:var(--n600);';
+    el.innerHTML=`<div style="font-size:18px;margin-bottom:4px;">${t.ico}</div>${t.name}`;
+    el.onclick=()=>selectCSVType(t.id,el);
+    g.appendChild(el);
+  });
+}
+
+function buildBatchTypeSelect() {
+  const sel=document.getElementById('batch-type');
+  TYPES.forEach(t=>{
+    const o=document.createElement('option');
+    o.value=t.id; o.textContent=t.ico+' '+t.name;
+    sel.appendChild(o);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   COLOR & THEME
+═══════════════════════════════════════════════ */
+function applyColor(key, hex) {
+  if (key==='bg') { S.bgColor=hex; document.getElementById('c-bg').value=hex; updateQC('qs-bg',hex); }
+  else if (key==='txt') { S.txtColor=hex; document.getElementById('c-txt').value=hex; updateQC('qs-txt',hex); }
+  else if (key==='acc') { S.accColor=hex; document.getElementById('c-acc').value=hex; updateQC('qs-acc',hex); }
+  debUpdate();
+}
+
+function updateQC(id, hex) {
+  document.querySelectorAll('#'+id+' .qc').forEach(el=>{
+    el.classList.toggle('sel', el.style.background===hex||el.title===hex);
+  });
+}
+
+function applyPreset(key, el) {
+  const p=PRESETS[key];
+  if (!p) return;
+  currentPreset=key;
+  applyColor('bg',p.bg); applyColor('txt',p.txt); applyColor('acc',p.acc);
+  document.querySelectorAll('.preset-pill').forEach(x=>x.classList.toggle('active',x.dataset.preset===key));
+  pushHist();
+  toast('Theme "'+key+'" applied','success');
+}
+
+/* ═══════════════════════════════════════════════
+   FONT & LAYOUT CONTROLS
+═══════════════════════════════════════════════ */
+function setAlign(a, el) {
+  S.align=a;
+  document.querySelectorAll('.align-btn').forEach(b=>b.classList.toggle('active',b.dataset.a===a));
+  debUpdate();
+}
+
+function setLogPos(p, el) {
+  S.logoPos=p;
+  document.querySelectorAll('.logo-cell').forEach(c=>c.classList.toggle('active',c.dataset.p===p));
+  debUpdate();
+}
+
+function setSize(w, h, el) {
+  S.width=w; S.height=h;
+  document.getElementById('lbl-w').value=w;
+  document.getElementById('lbl-h').value=h;
+  document.querySelectorAll('.size-pill').forEach(x=>x.classList.toggle('active',parseFloat(x.dataset.w)===w&&parseFloat(x.dataset.h)===h));
+  pushHist();
+  renderPreview();
+  updateSizeBadge();
+}
+
+function updateSizeBadge() {
+  const el=document.getElementById('size-badge');
+  el.textContent=`${S.width}" × ${S.height}" (${Math.round(S.width*DPI)}×${Math.round(S.height*DPI)}px)`;
+}
+
+/* ═══════════════════════════════════════════════
+   LOGO
+═══════════════════════════════════════════════ */
+function handleLogoUpload(inp) {
+  const f=inp.files[0]; if (!f) return;
+  if (!f.type.startsWith('image/')) { toast('Please select an image file','error'); return; }
+  const r=new FileReader();
+  r.onload=e=>{ S.customLogo=e.target.result; debUpdate(); toast('Logo uploaded!','success'); };
+  r.readAsDataURL(f);
+}
+
+function resetLogo() {
+  S.customLogo=null; debUpdate(); toast('Logo reset to default','info');
+}
+
+/* ═══════════════════════════════════════════════
+   PREVIEW RENDERING
+═══════════════════════════════════════════════ */
+function debUpdate() {
+  clearTimeout(debTimer);
+  debTimer=setTimeout(renderPreview, 60);
+}
+
+function renderPreview() {
+  const canvas=document.getElementById('label-canvas');
+  const inner=document.getElementById('label-inner');
+  const wpx=Math.round(S.width*DPI);
+  const hpx=Math.round(S.height*DPI);
+  canvas.style.width=wpx+'px';
+  canvas.style.height=hpx+'px';
+  canvas.style.borderRadius=S.cornerR+'px';
+  canvas.style.transform=`scale(${S.zoom})`;
+  canvas.style.transformOrigin='center center';
+  if (S.bdrStyle && S.bdrStyle!=='none') {
+    canvas.style.border=`${S.bdrW}px ${S.bdrStyle} ${S.bdrColor}`;
+  } else {
+    canvas.style.border='none';
+    canvas.style.boxShadow='0 4px 30px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.06)';
+  }
+  inner.style.cssText=`width:100%;height:100%;position:relative;overflow:hidden;background:${S.bgColor};color:${S.txtColor};font-family:${S.fontFam};font-size:${S.fontSize}px;font-weight:${S.fontWt};text-align:${S.align};line-height:${S.lineH};padding:${S.padding}px;box-sizing:border-box;`;
+  inner.innerHTML=renderLabelHTML(S.type, S, S.fields, false);
+  document.getElementById('zoom-label').textContent=Math.round(S.zoom*100)+'%';
+  updateSizeBadge();
+}
+
+/* ═══════════════════════════════════════════════
+   LABEL HTML GENERATOR
+═══════════════════════════════════════════════ */
+function logoHTML(ss) {
+  if (!ss.showLogo) return '';
+  const src=ss.customLogo||BRAND_LOGO;
+  const sz=ss.logoSize||72;
+  const op=ss.logoOp!==undefined?ss.logoOp/100:1;
+  const rd=ss.logoRad||0;
+  const pos=ss.logoPos||'tl-block';
+  let style=`width:${sz}px;height:${sz}px;object-fit:contain;opacity:${op};border-radius:${rd}%;flex-shrink:0;`;
+  if (pos.includes('block')) {
+    let align='flex-start';
+    if (pos.startsWith('tc')||pos.startsWith('mc')||pos.startsWith('bc')) align='center';
+    if (pos.startsWith('tr')||pos.startsWith('mr')||pos.startsWith('br')) align='flex-end';
+    let mb=pos.startsWith('b')?'0px':'5px';
+    let mt=pos.startsWith('m')?'auto':pos.startsWith('b')?'auto':'0px';
+    let order=pos.startsWith('b')?'10':'0';
+    return `<div style="display:flex;justify-content:${align};margin-bottom:${mb};margin-top:${mt};order:${order};"><img src="${src}" style="${style}" alt="Logo" onerror="this.style.display='none'"/></div>`;
+  }
+  return `<img src="${src}" style="${style}display:inline-block;margin-right:8px;vertical-align:middle;" alt="Logo" onerror="this.style.display='none'"/>`;
+}
+
+function leafBar(ss) {
+  if (!ss.leafBar) return '';
+  return `<div style="height:3px;border-radius:2px;background:linear-gradient(90deg,${ss.accColor},transparent);margin:5px 0;opacity:.7;"></div>`;
+}
+
+function watermark(ss) {
+  if (!ss.watermark) return '';
+  return `<div style="position:absolute;bottom:5px;right:8px;font-size:8px;opacity:.12;font-weight:700;letter-spacing:.1em;text-transform:uppercase;pointer-events:none;">${BRAND.name}</div>`;
+}
+
+function hdEl(text, ss) {
+  return `<div style="font-family:'Playfair Display',serif;font-size:${ss.fontSize+2}px;font-weight:700;color:${ss.accColor};margin-bottom:4px;line-height:1.2;">${text}</div>`;
+}
+
+function infoRow(ico, val) {
+  if (!val) return '';
+  return `<div class="lbl-row"><span>${ico}</span><span style="font-size:inherit;opacity:.85;">${val}</span></div>`;
+}
+
+function divider(ss) {
+  return `<hr class="lbl-divider" style="border-color:${ss.accColor};"/>`;
+}
+
+function fv(fields, id) { return (fields[id]||'').trim(); }
+
+function renderLabelHTML(type, ss, fields, small) {
+  const lgo  = logoHTML(ss);
+  const LB   = leafBar(ss);
+  const WM   = watermark(ss);
+  const fs   = ss.fontSize;
+  const acc  = ss.accColor;
+  const f    = (id)=>fv(fields,id);
+
+  switch(type) {
+    case 'thankyou': return `
+      ${lgo}${LB}
+      <div style="text-align:center;">
+        <div style="font-size:${fs+8}px;margin-bottom:4px;">🙏</div>
+        ${f('customer-name')?`<div style="font-family:'Playfair Display',serif;font-size:${fs+4}px;color:${acc};font-style:italic;">Dear ${f('customer-name')},</div>`:`<div style="font-family:'Playfair Display',serif;font-size:${fs+4}px;color:${acc};">Thank You!</div>`}
+        ${f('order-no')?`<div style="font-size:${fs-2}px;opacity:.5;margin-top:2px;font-family:monospace;">Order: ${f('order-no')}</div>`:''}
+        ${f('thank-msg')?`<div style="font-style:italic;font-size:${fs-1}px;margin:8px 0;opacity:.85;line-height:1.55;">${f('thank-msg').replace(/\n/g,'<br>')}</div>`:''}
+        ${divider(ss)}
+        ${f('discount-code')?`<div style="background:${acc};color:#fff;padding:5px 14px;border-radius:6px;display:inline-block;font-weight:800;font-size:${fs}px;letter-spacing:.08em;margin-bottom:3px;">${f('discount-code')}</div>`:''}
+        ${f('discount-note')?`<div style="font-size:${fs-2}px;opacity:.65;">${f('discount-note')}</div>`:''}
+        ${f('social')?`<div style="font-size:${fs-2}px;color:${acc};margin-top:5px;font-weight:700;">🌿 ${f('social')}</div>`:''}
+      </div>${WM}`;
+
+    case 'welcome': return `
+      ${lgo}${LB}
+      <div style="text-align:center;">
+        <div style="font-size:${fs+6}px;margin-bottom:4px;">👋</div>
+        <div style="font-family:'Playfair Display',serif;font-size:${fs+4}px;color:${acc};">Welcome${f('customer-name')?', '+f('customer-name')+'!':'!'}</div>
+        ${f('welcome-msg')?`<div style="font-style:italic;font-size:${fs-1}px;margin:8px 0;opacity:.85;line-height:1.55;">${f('welcome-msg').replace(/\n/g,'<br>')}</div>`:''}
+        ${divider(ss)}
+        ${f('offer')?`<div style="background:rgba(200,150,30,.12);border:1.5px solid rgba(200,150,30,.3);border-radius:8px;padding:6px 12px;font-size:${fs-1}px;font-weight:700;color:${acc};">🎁 ${f('offer')}</div>`:''}
+        ${f('social')?`<div style="font-size:${fs-2}px;color:${acc};margin-top:5px;font-weight:700;">🌿 ${f('social')}</div>`:''}
+        <div style="font-size:${fs-4}px;opacity:.35;margin-top:3px;">${BRAND.website}</div>
+      </div>${WM}`;
+
+    case 'delivery': return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+        <div>
+          <div style="font-size:${fs-3}px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;opacity:.4;margin-bottom:1px;">FROM</div>
+          <div style="font-weight:700;font-size:${fs}px;color:${acc};">${f('sender-name')||BRAND.name}</div>
+          ${f('sender-addr')?`<div style="font-size:${fs-2}px;opacity:.6;">${f('sender-addr').replace(/\n/g,'<br>')}</div>`:''}
+        </div>
+        ${lgo}
+      </div>
+      ${LB}
+      <div style="margin-bottom:6px;">
+        <div style="font-size:${fs-3}px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;opacity:.4;margin-bottom:1px;">SHIP TO</div>
+        <div style="font-weight:800;font-size:${fs+5}px;color:${acc};line-height:1.1;">${f('recv-name')||'Recipient Name'}</div>
+        <div style="font-size:${fs}px;margin-top:2px;">${(f('recv-addr')||'').replace(/\n/g,'<br>')}</div>
+      </div>
+      ${divider(ss)}
+      <div style="display:flex;flex-wrap:wrap;gap:5px;font-size:${fs-2}px;">
+        ${f('order-no')?`<div style="background:rgba(30,77,43,.1);padding:2px 8px;border-radius:10px;font-weight:700;color:${acc};">📋 ${f('order-no')}</div>`:''}
+        ${f('method')?`<div>🚚 ${f('method')}</div>`:''}
+        ${f('weight')?`<div>⚖ ${f('weight')}</div>`:''}
+      </div>
+      ${f('tracking')?`<div style="font-size:${fs-4}px;opacity:.4;margin-top:2px;font-family:monospace;">TRK: ${f('tracking')}</div>`:''}${WM}`;
+
+    case 'del-ret': return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px;">
+        <div>
+          <div style="font-size:${fs-3}px;text-transform:uppercase;font-weight:700;opacity:.4;letter-spacing:.06em;">FROM</div>
+          <div style="font-weight:700;color:${acc};">${f('sender-name')||BRAND.name}</div>
+        </div>${lgo}
+      </div>
+      ${LB}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="border-right:1.5px dashed ${acc}44;padding-right:8px;">
+          <div style="font-size:${fs-3}px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${acc};margin-bottom:2px;">📬 Delivery</div>
+          <div style="font-weight:800;font-size:${fs+1}px;">${f('recv-name')||''}</div>
+          <div style="font-size:${fs-2}px;opacity:.75;">${(f('recv-addr')||'').replace(/\n/g,'<br>')}</div>
+          ${f('order-no')?`<div style="font-size:${fs-3}px;font-weight:700;color:${acc};">Order: ${f('order-no')}</div>`:''}
+          ${f('del-date')?`<div style="font-size:${fs-3}px;opacity:.6;">📅 ${f('del-date')}</div>`:''}
+        </div>
+        <div>
+          <div style="font-size:${fs-3}px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${acc};margin-bottom:2px;">↩ Return</div>
+          ${f('ret-addr')?`<div style="font-size:${fs-3}px;opacity:.7;">${f('ret-addr').replace(/\n/g,'<br>')}</div>`:''}
+          ${f('ret-by')?`<div style="font-size:${fs-3}px;font-weight:700;color:${acc};">By: ${f('ret-by')}</div>`:''}
+          ${f('ret-policy')?`<div style="font-size:${fs-4}px;opacity:.5;margin-top:2px;">${f('ret-policy')}</div>`:''}
+        </div>
+      </div>${WM}`;
+
+    case 'product': return `
+      ${lgo}${LB}
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
+        ${f('prod-name')?`<div style="font-family:'Playfair Display',serif;font-size:${fs+2}px;font-weight:700;color:${acc};line-height:1.2;">${f('prod-name')}</div>`:''}
+        ${f('price')?`<div style="font-size:${fs+1}px;font-weight:800;color:${acc};margin-left:auto;">${f('price')}</div>`:''}
+      </div>
+      ${f('variant')?`<div style="font-size:${fs-1}px;opacity:.6;margin-bottom:3px;">${f('variant')}</div>`:''}
+      ${f('weight')?`<span style="background:${acc};color:#fff;padding:2px 9px;border-radius:10px;font-size:${fs-2}px;font-weight:700;display:inline-block;margin-bottom:5px;">⚖ ${f('weight')}</span>`:''}
+      ${f('desc')?`<div style="font-size:${fs-2}px;opacity:.8;margin-bottom:4px;line-height:1.45;">${f('desc')}</div>`:''}
+      ${divider(ss)}
+      ${f('ingredients')?`<div style="font-size:${fs-3}px;opacity:.7;margin-bottom:1px;"><strong>Ingredients:</strong> ${f('ingredients')}</div>`:''}
+      ${f('allergens')?`<div style="font-size:${fs-3}px;font-weight:700;color:${acc};margin-bottom:1px;">⚠ ${f('allergens')}</div>`:''}
+      ${f('cert')?`<div style="font-size:${fs-3}px;color:${acc};font-weight:700;margin-bottom:1px;">🌿 ${f('cert')}</div>`:''}
+      ${f('storage')?`<div style="font-size:${fs-3}px;opacity:.6;">📦 ${f('storage')}</div>`:''}
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px;font-size:${fs-3}px;opacity:.5;">
+        ${f('best-before')?`<span>📅 ${f('best-before')}</span>`:''}
+        ${f('batch-no')?`<span>Batch: ${f('batch-no')}</span>`:''}
+        ${f('sku')?`<span>SKU: ${f('sku')}</span>`:''}
+      </div>${WM}`;
+
+    case 'contact': return `
+      ${lgo}${LB}
+      ${f('comp-name')||BRAND.name?hdEl(f('comp-name')||BRAND.name, ss):''}
+      ${divider(ss)}
+      ${infoRow('📞',f('phone'))}
+      ${infoRow('✉',f('email'))}
+      ${infoRow('🌐',f('website'))}
+      ${f('address')?`<div class="lbl-row"><span>📍</span><span style="font-size:${fs-1}px;">${f('address').replace(/\n/g,'<br>')}</span></div>`:''}
+      ${infoRow('🕐',f('hours'))}
+      ${infoRow('🌿',f('social'))}
+      ${f('cta')?`<div style="margin-top:6px;font-size:${fs-1}px;font-weight:700;color:${acc};">${f('cta')}</div>`:''}${WM}`;
+
+    case 'promo': return `
+      ${lgo}${LB}
+      <div style="text-align:center;">
+        <div style="font-family:'Playfair Display',serif;font-size:${fs+5}px;font-weight:700;color:${acc};line-height:1.2;margin-bottom:7px;">${f('headline')||'Special Offer!'}</div>
+        ${f('discount')?`<div style="background:linear-gradient(135deg,${acc},#c8961e);color:#fff;padding:8px 22px;border-radius:30px;display:inline-block;font-size:${fs+8}px;font-weight:800;margin-bottom:8px;">${f('discount')}</div>`:''}
+        ${f('code')?`<div style="border:2px dashed ${acc};border-radius:8px;padding:5px 16px;display:inline-block;font-size:${fs+2}px;font-weight:800;letter-spacing:.1em;color:${acc};margin-bottom:6px;">CODE: ${f('code')}</div>`:''}
+        ${f('details')?`<div style="font-size:${fs-2}px;opacity:.75;margin:5px 0;line-height:1.5;">${f('details').replace(/\n/g,'<br>')}</div>`:''}
+        ${f('expiry')?`<div style="font-size:${fs-3}px;opacity:.5;margin-top:4px;">⏰ ${f('expiry')}</div>`:''}
+        ${f('social')?`<div style="font-size:${fs-2}px;color:${acc};margin-top:4px;font-weight:700;">🌿 ${f('social')}</div>`:''}
+      </div>${WM}`;
+
+    case 'ingredient': return `
+      ${lgo}${LB}
+      ${f('prod-name')?`<div style="font-family:'Playfair Display',serif;font-size:${fs+1}px;font-weight:600;color:${acc};margin-bottom:4px;">${f('prod-name')}</div>`:''}
+      <div style="background:rgba(30,77,43,.06);border-radius:7px;padding:6px 8px;margin-bottom:5px;border:1px solid rgba(30,77,43,.1);">
+        <div style="font-size:${fs-3}px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:${acc};margin-bottom:3px;">Nutrition Facts</div>
+        ${f('serving')?`<div style="font-size:${fs-3}px;opacity:.65;margin-bottom:3px;">Serving: ${f('serving')}</div>`:''}
+        ${f('calories')?`<div style="font-size:${fs+3}px;font-weight:800;color:${acc};border-bottom:2px solid ${acc}22;padding-bottom:3px;margin-bottom:3px;">${f('calories')}</div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:${fs-3}px;">
+          ${f('protein')?`<div><span style="opacity:.55;">Protein</span> <strong>${f('protein')}</strong></div>`:''}
+          ${f('fat')?`<div><span style="opacity:.55;">Fat</span> <strong>${f('fat')}</strong></div>`:''}
+          ${f('carbs')?`<div><span style="opacity:.55;">Carbs</span> <strong>${f('carbs')}</strong></div>`:''}
+          ${f('fiber')?`<div><span style="opacity:.55;">Fiber</span> <strong>${f('fiber')}</strong></div>`:''}
+          ${f('sugar')?`<div><span style="opacity:.55;">Sugars</span> <strong>${f('sugar')}</strong></div>`:''}
+          ${f('sodium')?`<div><span style="opacity:.55;">Sodium</span> <strong>${f('sodium')}</strong></div>`:''}
+        </div>
+      </div>
+      ${f('vitamins')?`<div style="font-size:${fs-3}px;opacity:.6;margin-bottom:2px;">🌟 ${f('vitamins')}</div>`:''}
+      ${f('cert')?`<div style="font-size:${fs-3}px;color:${acc};font-weight:700;">🌿 ${f('cert')}</div>`:''}${WM}`;
+
+    default: return '<div style="text-align:center;opacity:.3;padding:30px;">Select a label type</div>';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ZOOM
+═══════════════════════════════════════════════ */
+function zoom(delta) {
+  S.zoom = Math.max(0.25, Math.min(3, S.zoom + delta));
+  renderPreview();
+}
+
+function fitZoom() {
+  const area=document.getElementById('canvas-area');
+  const aw=area.clientWidth-80, ah=area.clientHeight-80;
+  const lw=S.width*DPI, lh=S.height*DPI;
+  S.zoom=Math.min(aw/lw, ah/lh, 1);
+  renderPreview();
+}
+
+/* ═══════════════════════════════════════════════
+   ACCORDION
+═══════════════════════════════════════════════ */
+function toggleAcc(header) {
+  const body=header.nextElementSibling;
+  const isOpen=body.classList.contains('open');
+  body.classList.toggle('open',!isOpen);
+  header.classList.toggle('open',!isOpen);
+}
+
+/* ═══════════════════════════════════════════════
+   HISTORY (UNDO/REDO)
+═══════════════════════════════════════════════ */
+function pushHist() {
+  const snap=JSON.stringify(S);
+  if (histIdx < history.length-1) history=history.slice(0,histIdx+1);
+  history.push(snap);
+  if (history.length>30) history.shift();
+  histIdx=history.length-1;
+  updateHistBtns();
+}
+
+function undoState() {
+  if (histIdx<=0) return;
+  histIdx--;
+  S=JSON.parse(history[histIdx]);
+  restoreAll();
+  updateHistBtns();
+  toast('Undo','info');
+}
+
+function redoState() {
+  if (histIdx>=history.length-1) return;
+  histIdx++;
+  S=JSON.parse(history[histIdx]);
+  restoreAll();
+  updateHistBtns();
+  toast('Redo','info');
+}
+
+function updateHistBtns() {
+  document.getElementById('undo-btn').disabled=histIdx<=0;
+  document.getElementById('redo-btn').disabled=histIdx>=history.length-1;
+}
+
+function restoreAll() {
+  buildTypeGrid();
+  buildDynFields();
+  syncUIToState();
+  renderPreview();
+}
+
+function syncUIToState() {
+  const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  sv('lbl-w',S.width); sv('lbl-h',S.height);
+  sv('font-fam',S.fontFam); sv('font-sz',S.fontSize);
+  document.getElementById('fs-v').textContent=S.fontSize+'px';
+  sv('font-wt',S.fontWt);
+  sv('line-h',Math.round(S.lineH*10));
+  document.getElementById('lh-v').textContent=S.lineH.toFixed(1);
+  sv('lbl-pad',S.padding); document.getElementById('pad-v').textContent=S.padding+'px';
+  sv('corner-r',S.cornerR); document.getElementById('cr-v').textContent=S.cornerR+'px';
+  sv('bdr-style',S.bdrStyle); sv('bdr-w',S.bdrW);
+  sv('logo-sz',S.logoSize); document.getElementById('logo-sz-v').textContent=S.logoSize+'px';
+  sv('logo-op',S.logoOp); document.getElementById('logo-op-v').textContent=S.logoOp+'%';
+  sv('logo-rd',S.logoRad); document.getElementById('logo-rd-v').textContent=S.logoRad+'%';
+  const sc=(id,v)=>{const e=document.getElementById(id);if(e)e.checked=v;};
+  sc('show-logo',S.showLogo); sc('leaf-bar',S.leafBar); sc('wm-tog',S.watermark);
+  applyColor('bg',S.bgColor); applyColor('txt',S.txtColor); applyColor('acc',S.accColor);
+  document.getElementById('c-bdr').value=S.bdrColor;
+  document.querySelectorAll('.logo-cell').forEach(c=>c.classList.toggle('active',c.dataset.p===S.logoPos));
+  document.querySelectorAll('.align-btn').forEach(b=>b.classList.toggle('active',b.dataset.a===S.align));
+  document.querySelectorAll('.size-pill').forEach(x=>x.classList.toggle('active',parseFloat(x.dataset.w)===S.width&&parseFloat(x.dataset.h)===S.height));
+}
+
+/* ═══════════════════════════════════════════════
+   SAVE / LOAD / AUTOSAVE
+═══════════════════════════════════════════════ */
+function saveDesign() {
+  try {
+    localStorage.setItem('gtnb_design_v3', JSON.stringify(S));
+    toast('Design saved!','success');
+    document.getElementById('autosave-label').textContent='Saved: '+new Date().toLocaleTimeString();
+  } catch(e) { toast('Save failed — storage full?','error'); }
+}
+
+function loadDesign() {
+  try {
+    const raw=localStorage.getItem('gtnb_design_v3');
+    if (!raw) { toast('No saved design found','warn'); return; }
+    S=JSON.parse(raw);
+    restoreAll();
+    toast('Design loaded!','success');
+  } catch(e) { toast('Load failed','error'); }
+}
+
+function autoSave() {
+  try {
+    localStorage.setItem('gtnb_autosave_v3', JSON.stringify(S));
+    document.getElementById('autosave-label').textContent='Auto-saved: '+new Date().toLocaleTimeString();
+  } catch(e) {}
+}
+
+function autoLoadDesign() {
+  try {
+    const d=localStorage.getItem('gtnb_design_v3')||localStorage.getItem('gtnb_autosave_v3');
+    if (d) {
+      const saved=JSON.parse(d);
+      // Only load non-field state on startup to avoid confusion
+      Object.assign(S, {bgColor:saved.bgColor,txtColor:saved.txtColor,accColor:saved.accColor,
+        fontFam:saved.fontFam,fontSize:saved.fontSize,fontWt:saved.fontWt,
+        logoSize:saved.logoSize,logoOp:saved.logoOp,logoRad:saved.logoRad,
+        showLogo:saved.showLogo,leafBar:saved.leafBar,watermark:saved.watermark,
+        width:saved.width,height:saved.height,padding:saved.padding,cornerR:saved.cornerR,
+        bdrStyle:saved.bdrStyle,bdrW:saved.bdrW,bdrColor:saved.bdrColor,
+        align:saved.align,lineH:saved.lineH,logoPos:saved.logoPos,
+      });
+      syncUIToState();
+      renderPreview();
+    }
+  } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════════
+   EXPORT — SINGLE LABEL
+═══════════════════════════════════════════════ */
+function printSingle() {
+  const pr=document.getElementById('print-root');
+  pr.innerHTML='';
+  const wpx=Math.round(S.width*DPI), hpx=Math.round(S.height*DPI);
+  const wrap=document.createElement('div');
+  wrap.style.cssText=`width:${wpx}px;height:${hpx}px;overflow:hidden;box-sizing:border-box;`;
+  const inner=document.createElement('div');
+  inner.style.cssText=`width:100%;height:100%;position:relative;overflow:hidden;background:${S.bgColor};color:${S.txtColor};font-family:${S.fontFam};font-size:${S.fontSize}px;font-weight:${S.fontWt};text-align:${S.align};line-height:${S.lineH};padding:${S.padding}px;box-sizing:border-box;`;
+  inner.innerHTML=renderLabelHTML(S.type,S,S.fields,false);
+  wrap.appendChild(inner);
+  pr.appendChild(wrap);
+  setTimeout(()=>{ window.print(); setTimeout(()=>pr.innerHTML='',2000); },300);
+}
+
+async function dlPDF() {
+  showLoading('Generating PDF…');
+  const el=buildOffscreen(S,S.fields,false);
+  document.body.appendChild(el);
+  await pause(100);
+  try {
+    const canvas=await html2canvas(el,{scale:2,useCORS:true,allowTaint:true,backgroundColor:S.bgColor,logging:false});
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({unit:'in',format:[S.width,S.height],orientation:S.width>=S.height?'landscape':'portrait'});
+    pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,S.width,S.height);
+    pdf.save('gtnb-label.pdf');
+    toast('PDF downloaded!','success');
+  } catch(e){ toast('PDF export failed','error'); }
+  document.body.removeChild(el);
+  hideLoading();
+}
+
+async function dlPNG() {
+  showLoading('Generating PNG…');
+  const el=buildOffscreen(S,S.fields,false);
+  document.body.appendChild(el);
+  await pause(100);
+  try {
+    const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:S.bgColor,logging:false});
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download='gtnb-label.png';
+    a.click();
+    toast('PNG downloaded!','success');
+  } catch(e){ toast('PNG export failed','error'); }
+  document.body.removeChild(el);
+  hideLoading();
+}
+
+function buildOffscreen(ss, fields, small) {
+  const wpx=Math.round(ss.width*DPI), hpx=Math.round(ss.height*DPI);
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;left:-9999px;top:-9999px;width:${wpx}px;height:${hpx}px;background:${ss.bgColor};color:${ss.txtColor};font-family:${ss.fontFam};font-size:${ss.fontSize}px;font-weight:${ss.fontWt};text-align:${ss.align};line-height:${ss.lineH};padding:${ss.padding}px;box-sizing:border-box;overflow:hidden;position:relative;`;
+  if (ss.bdrStyle&&ss.bdrStyle!=='none') el.style.border=`${ss.bdrW}px ${ss.bdrStyle} ${ss.bdrColor}`;
+  if (ss.cornerR) el.style.borderRadius=ss.cornerR+'px';
+  el.innerHTML=renderLabelHTML(ss.type,ss,fields,small);
+  el.style.position='fixed'; // reset
+  return el;
+}
+
+/* ═══════════════════════════════════════════════
+   BATCH PROCESSING
+═══════════════════════════════════════════════ */
+function onBatchTypeChange(val) {
+  document.getElementById('get-template-btn').disabled=!val;
+  if (val) {
+    document.getElementById('bstep1').classList.add('done');
+    csvTypeSelected=val;
+  }
+}
+
+function openCSVHelper() {
+  openModal('csv-modal');
+  if (csvTypeSelected) {
+    const el=document.querySelector(`#csv-type-grid div:nth-child(${TYPES.findIndex(t=>t.id===csvTypeSelected)+1})`);
+    if (el) selectCSVType(csvTypeSelected, el);
+  }
+}
+
+function handleBatchFile(inp) {
+  const f=inp.files[0]; if(!f) return;
+  if (!f.name.endsWith('.csv')&&!f.type.includes('csv')) {
+    toast('Please upload a CSV file','error'); return;
+  }
+  const type=document.getElementById('batch-type').value;
+  if (!type) { toast('Please select a label type first','warn'); return; }
+
+  const reader=new FileReader();
+  reader.onload=e=>{ parseBatchCSV(e.target.result, type); };
+  reader.readAsText(f);
+}
+
+function parseBatchCSV(text, type) {
+  const rows=parseCSVText(text);
+  if (!rows.length) { toast('CSV file is empty','error'); return; }
+  const defs=FIELDS[type]||[];
+  const headers=rows[0];
+  const dataRows=rows.slice(1).filter(r=>r.some(c=>c.trim()));
+
+  batchData=dataRows.map((row,i)=>{
+    const fields={};
+    defs.forEach((f,j)=>{
+      const colIdx=headers.indexOf(f.id);
+      fields[f.id]=colIdx>=0?row[colIdx]||'':row[j]||'';
+    });
+    return {id:i+1, type, fields, status:'ready'};
+  });
+
+  // Update UI
+  document.getElementById('bstep2').classList.add('done');
+  document.getElementById('bstep3').classList.add('done');
+  document.getElementById('batch-result').style.display='block';
+  document.getElementById('batch-empty').style.display='none';
+  document.getElementById('batch-result-title').textContent=`${batchData.length} labels ready`;
+  document.getElementById('batch-result-sub').textContent=`Label type: ${TYPES.find(t=>t.id===type)?.name} · From: ${document.getElementById('batch-file').files[0].name}`;
+
+  // Build list
+  const list=document.getElementById('batch-list');
+  list.innerHTML='';
+  batchData.slice(0,20).forEach(item=>{
+    const firstField=Object.values(item.fields).find(v=>v)||'Label '+item.id;
+    const tr=document.createElement('div');
+    tr.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--white);border:1px solid var(--n100);border-radius:7px;margin-bottom:6px;font-size:13px;';
+    tr.innerHTML=`<div style="width:24px;height:24px;border-radius:50%;background:var(--g700);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${item.id}</div>
+      <div style="flex:1;color:var(--n700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${firstField}</div>
+      <span class="status-badge sb-ready" id="bstat-${item.id}">Ready</span>`;
+    list.appendChild(tr);
+  });
+  if (batchData.length>20) {
+    list.innerHTML+=`<div style="text-align:center;color:var(--n400);font-size:12.5px;padding:8px;">+ ${batchData.length-20} more labels</div>`;
+  }
+
+  // Update sheet source count
+  updateBatchSourceCount();
+  document.getElementById('batch-prog').style.width='0%';
+  toast(`${batchData.length} labels parsed from CSV!`,'success');
+}
+
+function updateBatchSourceCount() {
+  const cnt=document.getElementById('batch-src-cnt');
+  if (cnt) cnt.textContent=batchData.length?`(${batchData.length})`:''
+}
+
+function clearBatch() {
+  batchData=[];
+  document.getElementById('batch-result').style.display='none';
+  document.getElementById('batch-empty').style.display='flex';
+  document.getElementById('batch-file').value='';
+  ['bstep2','bstep3'].forEach(id=>document.getElementById(id).classList.remove('done'));
+  updateBatchSourceCount();
+  toast('Batch cleared','info');
+}
+
+function setBatchStatus(id, status) {
+  const el=document.getElementById('bstat-'+id);
+  if (!el) return;
+  if (status==='done') { el.className='status-badge sb-ready'; el.textContent='Done ✓'; }
+  else if (status==='error') { el.className='status-badge sb-error'; el.textContent='Error'; }
+  else { el.textContent='Processing…'; }
+}
+
+async function openBatchPreview() {
+  if (!batchData.length) { toast('No batch data loaded','warn'); return; }
+  const grid=document.getElementById('batch-prev-grid');
+  grid.innerHTML='<div style="padding:40px;color:var(--n400);text-align:center;">Rendering previews…</div>';
+  document.getElementById('batch-modal-count').textContent=batchData.length+' labels · '+TYPES.find(t=>t.id===batchData[0]?.type)?.name;
+  openModal('batch-modal');
+  const SDPI=52;
+  const wpx=Math.round(S.width*SDPI), hpx=Math.round(S.height*SDPI);
+  grid.innerHTML='';
+  batchData.forEach(item=>{
+    const ss={...S,fontSize:Math.max(7,Math.round(S.fontSize*.52)),padding:Math.max(3,Math.round(S.padding*.52)),leafBar:false,watermark:false};
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:relative;cursor:pointer;';
+    wrap.title='Label '+item.id;
+    const lbl=document.createElement('div');
+    lbl.style.cssText=`width:${wpx}px;height:${hpx}px;background:${S.bgColor};border:1px solid var(--n200);border-radius:4px;overflow:hidden;position:relative;font-family:${S.fontFam};font-size:${ss.fontSize}px;color:${S.txtColor};padding:${ss.padding}px;box-sizing:border-box;transition:box-shadow .15s;`;
+    lbl.innerHTML=renderLabelHTML(item.type,ss,item.fields,true);
+    lbl.onmouseenter=()=>lbl.style.boxShadow='0 4px 16px rgba(0,0,0,.2)';
+    lbl.onmouseleave=()=>lbl.style.boxShadow='';
+    const num=document.createElement('div');
+    num.style.cssText='position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--g700);color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;';
+    num.textContent=item.id;
+    wrap.appendChild(lbl); wrap.appendChild(num); grid.appendChild(wrap);
+  });
+}
+
+async function batchPrint() {
+  if(!batchData.length){toast('Upload a CSV first','warn');return;}
+  showLoading(`Preparing ${batchData.length} labels…`);
+  const pr=document.getElementById('print-root');
+  pr.innerHTML='';
+  const wpx=Math.round(S.width*DPI),hpx=Math.round(S.height*DPI);
+  batchData.forEach(item=>{
+    const wrap=document.createElement('div');
+    wrap.style.cssText=`width:${wpx}px;height:${hpx}px;page-break-after:always;overflow:hidden;`;
+    const inner=document.createElement('div');
+    inner.style.cssText=`width:100%;height:100%;background:${S.bgColor};color:${S.txtColor};font-family:${S.fontFam};font-size:${S.fontSize}px;font-weight:${S.fontWt};text-align:${S.align};line-height:${S.lineH};padding:${S.padding}px;box-sizing:border-box;overflow:hidden;position:relative;`;
+    inner.innerHTML=renderLabelHTML(item.type,S,item.fields,false);
+    wrap.appendChild(inner); pr.appendChild(wrap);
+  });
+  setTimeout(()=>{ hideLoading(); window.print(); setTimeout(()=>pr.innerHTML='',2000); },600);
+}
+
+async function batchPDF() {
+  if(!batchData.length){toast('Upload a CSV first','warn');return;}
+  showLoading(`Generating PDF for ${batchData.length} labels…`,'This may take a moment…');
+  const{jsPDF}=window.jspdf;
+  const pdf=new jsPDF({unit:'in',format:[S.width,S.height],orientation:S.width>=S.height?'landscape':'portrait'});
+  const wpx=Math.round(S.width*DPI),hpx=Math.round(S.height*DPI);
+  for(let i=0;i<batchData.length;i++){
+    const item=batchData[i];
+    setLoadBar((i/batchData.length)*90);
+    const el=buildOffscreen(S,item.fields,false);
+    el.style.cssText=`position:fixed;left:-9999px;top:0;width:${wpx}px;height:${hpx}px;background:${S.bgColor};color:${S.txtColor};font-family:${S.fontFam};font-size:${S.fontSize}px;font-weight:${S.fontWt};text-align:${S.align};line-height:${S.lineH};padding:${S.padding}px;box-sizing:border-box;overflow:hidden;`;
+    el.innerHTML=renderLabelHTML(item.type,S,item.fields,false);
+    document.body.appendChild(el);
+    await pause(60);
+    try{
+      const canvas=await html2canvas(el,{scale:2,useCORS:true,allowTaint:true,backgroundColor:S.bgColor,logging:false});
+      if(i>0)pdf.addPage([S.width,S.height]);
+      pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,S.width,S.height);
+      setBatchStatus(item.id,'done');
+    }catch{setBatchStatus(item.id,'error');}
+    document.body.removeChild(el);
+  }
+  setLoadBar(100);
+  pdf.save('gt-nutri-bites-batch.pdf');
+  hideLoading();
+  toast(`${batchData.length} labels exported!`,'success');
+}
+
+async function batchPNGs() {
+  if(!batchData.length){toast('Upload a CSV first','warn');return;}
+  showLoading(`Generating ${batchData.length} PNGs…`);
+  const wpx=Math.round(S.width*DPI),hpx=Math.round(S.height*DPI);
+  for(let i=0;i<batchData.length;i++){
+    const item=batchData[i];
+    setLoadBar((i/batchData.length)*100);
+    const el=document.createElement('div');
+    el.style.cssText=`position:fixed;left:-9999px;top:0;width:${wpx}px;height:${hpx}px;background:${S.bgColor};color:${S.txtColor};font-family:${S.fontFam};font-size:${S.fontSize}px;font-weight:${S.fontWt};text-align:${S.align};line-height:${S.lineH};padding:${S.padding}px;box-sizing:border-box;overflow:hidden;`;
+    el.innerHTML=renderLabelHTML(item.type,S,item.fields,false);
+    document.body.appendChild(el);
+    await pause(80);
+    try{
+      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:S.bgColor,logging:false});
+      const a=document.createElement('a');
+      a.href=canvas.toDataURL('image/png');
+      a.download=`gtnb-${String(i+1).padStart(3,'0')}-${item.type}.png`;
+      a.click();
+      setBatchStatus(item.id,'done');
+    }catch{setBatchStatus(item.id,'error');}
+    document.body.removeChild(el);
+    await pause(100);
+  }
+  hideLoading();
+  toast(`${batchData.length} PNGs downloaded!`,'success');
+}
+
+/* ═══════════════════════════════════════════════
+   A4 SHEET
+═══════════════════════════════════════════════ */
+function setSheetSrc(src) {
+  sheetSrc=src;
+  document.getElementById('src-single').classList.toggle('active',src==='single');
+  document.getElementById('src-batch').classList.toggle('active',src==='batch');
+  document.getElementById('copies-row').style.display=src==='single'?'block':'none';
+  if (src==='batch'&&!batchData.length) toast('No batch data loaded yet. Upload a CSV first.','warn');
+  scheduleSheetUpdate();
+}
+
+function scheduleSheetUpdate() {
+  clearTimeout(sheetUpdateTimer);
+  sheetUpdateTimer=setTimeout(updateSheetPreview, 200);
+}
+
+function updateSheetInfo() {
+  const landscape=document.getElementById('sheet-landscape')?.checked;
+  const A4w=landscape?297:210, A4h=landscape?210:297;
+  const margin=parseFloat(document.getElementById('sheet-margin')?.value||8);
+  const gap=parseFloat(document.getElementById('sheet-gap')?.value||4);
+  const cols=parseInt(document.getElementById('sheet-cols')?.value||2);
+  const rows=parseInt(document.getElementById('sheet-rows')?.value||4);
+  const lblWmm=(A4w-margin*2-gap*(cols-1))/cols;
+  const lblHmm=(A4h-margin*2-gap*(rows-1))/rows;
+  const total=cols*rows;
+  const el=document.getElementById('sheet-info');
+  if (el) el.innerHTML=`<span class="callout-ico">📊</span><div><strong>${cols}×${rows} = ${total} labels</strong> per sheet &nbsp;·&nbsp; Each: <strong>${lblWmm.toFixed(1)}×${lblHmm.toFixed(1)}mm</strong> &nbsp;·&nbsp; ${landscape?'Landscape':'Portrait'} A4</div>`;
+  const cnt=document.getElementById('sheet-cell-count');
+  if (cnt) cnt.textContent=total+' labels';
+}
+
+function updateSheetPreview() {
+  updateSheetInfo();
+  const inner=document.getElementById('sheet-preview-inner');
+  if (!inner) return;
+
+  const landscape=document.getElementById('sheet-landscape').checked;
+  const A4w_mm=landscape?297:210, A4h_mm=landscape?210:297;
+  const margin_mm=parseFloat(document.getElementById('sheet-margin').value)||8;
+  const gap_mm=parseFloat(document.getElementById('sheet-gap').value)||4;
+  const cols=Math.max(1,parseInt(document.getElementById('sheet-cols').value)||2);
+  const rows=Math.max(1,parseInt(document.getElementById('sheet-rows').value)||4);
+
+  // Scale to fit preview container (approx 500px wide)
+  const availW=inner.clientWidth-40||500;
+  const availH=inner.clientHeight-40||360;
+  const scW=availW/(A4w_mm*PX_PER_MM);
+  const scH=availH/(A4h_mm*PX_PER_MM);
+  const sc=Math.min(scW,scH,0.6);
+
+  const {sheet}=buildSheetDOM(sc);
+  inner.innerHTML='';
+  inner.appendChild(sheet);
+}
+
+function buildSheetDOM(sc) {
+  const landscape=document.getElementById('sheet-landscape').checked;
+  const A4w_mm=landscape?297:210, A4h_mm=landscape?210:297;
+  const margin_mm=parseFloat(document.getElementById('sheet-margin').value)||8;
+  const gap_mm=parseFloat(document.getElementById('sheet-gap').value)||4;
+  const cols=Math.max(1,parseInt(document.getElementById('sheet-cols').value)||2);
+  const rows=Math.max(1,parseInt(document.getElementById('sheet-rows').value)||4);
+  const showCuts=document.getElementById('sheet-cuts').checked;
+  const totalCells=cols*rows;
+
+  let labelItems=[];
+  if (sheetSrc==='batch'&&batchData.length>0) {
+    for(let i=0;i<totalCells;i++) labelItems.push(i<batchData.length?{type:batchData[i].type,fields:batchData[i].fields}:null);
+  } else {
+    const copies=Math.min(parseInt(document.getElementById('sheet-copies').value)||8,totalCells);
+    for(let i=0;i<totalCells;i++) labelItems.push(i<copies?{type:S.type,fields:S.fields}:null);
+  }
+
+  const A4w_px=A4w_mm*PX_PER_MM*sc;
+  const A4h_px=A4h_mm*PX_PER_MM*sc;
+  const margin_px=margin_mm*PX_PER_MM*sc;
+  const gap_px=gap_mm*PX_PER_MM*sc;
+  const lblW_px=(A4w_px-margin_px*2-gap_px*(cols-1))/cols;
+  const lblH_px=(A4h_px-margin_px*2-gap_px*(rows-1))/rows;
+
+  const sheet=document.createElement('div');
+  sheet.style.cssText=`width:${A4w_px}px;height:${A4h_px}px;background:#fff;position:relative;overflow:hidden;box-sizing:border-box;box-shadow:0 4px 20px rgba(0,0,0,.25);`;
+
+  labelItems.forEach((item,idx)=>{
+    const col=idx%cols, row=Math.floor(idx/cols);
+    const x=margin_px+col*(lblW_px+gap_px);
+    const y=margin_px+row*(lblH_px+gap_px);
+    const cutLen=5*sc, cutOff=2*sc, cutW=0.5*sc;
+
+    if (showCuts) {
+      [
+        [x-cutOff, y-cutLen,'v',cutLen],
+        [x-cutLen, y-cutOff,'h',cutLen],
+        [x+lblW_px+cutOff, y-cutLen,'v',cutLen],
+        [x+lblW_px, y-cutOff,'h',cutLen],
+        [x-cutOff, y+lblH_px,'v',cutLen],
+        [x-cutLen, y+lblH_px+cutOff,'h',cutLen],
+        [x+lblW_px+cutOff, y+lblH_px,'v',cutLen],
+        [x+lblW_px, y+lblH_px+cutOff,'h',cutLen],
+      ].forEach(([cx,cy,dir,len])=>{
+        const el=document.createElement('div');
+        el.style.cssText=`position:absolute;background:#bbb;${dir==='h'?`left:${cx}px;top:${cy}px;width:${len}px;height:${cutW}px;`:`left:${cx}px;top:${cy}px;width:${cutW}px;height:${len}px;`}`;
+        sheet.appendChild(el);
+      });
+    }
+
+    const cell=document.createElement('div');
+    cell.style.cssText=`position:absolute;left:${x}px;top:${y}px;width:${lblW_px}px;height:${lblH_px}px;overflow:hidden;box-sizing:border-box;`;
+
+    if (item) {
+      const ratio=lblW_px/(S.width*DPI*sc);
+      const lss={...S,
+        fontSize:Math.max(6,Math.round(S.fontSize*ratio*sc)),
+        padding:Math.max(3,Math.round(S.padding*ratio*sc)),
+        leafBar:S.leafBar,watermark:false,
+      };
+      const inner=document.createElement('div');
+      inner.style.cssText=`width:100%;height:100%;background:${S.bgColor};color:${S.txtColor};font-family:${S.fontFam};font-size:${lss.fontSize}px;font-weight:${S.fontWt};text-align:${S.align};line-height:${S.lineH};padding:${lss.padding}px;box-sizing:border-box;overflow:hidden;position:relative;`;
+      if (S.bdrStyle&&S.bdrStyle!=='none') inner.style.border=`${Math.max(1,S.bdrW*sc)}px ${S.bdrStyle} ${S.bdrColor}`;
+      if (S.cornerR) inner.style.borderRadius=S.cornerR*sc+'px';
+      inner.innerHTML=renderLabelHTML(item.type,lss,item.fields,true);
+      cell.appendChild(inner);
+    } else {
+      cell.style.border='1px dashed #e5e5e5';
+    }
+    sheet.appendChild(cell);
+  });
+
+  return {sheet,A4w_px,A4h_px,cols,rows,totalCells};
+}
+
+function previewSheetModal() {
+  const content=document.getElementById('sheet-modal-content');
+  const landscape=document.getElementById('sheet-landscape').checked;
+  const A4w_mm=landscape?297:210, A4h_mm=landscape?210:297;
+  const scale=Math.min(720/(A4w_mm*PX_PER_MM), 600/(A4h_mm*PX_PER_MM), 0.8);
+  const {sheet}=buildSheetDOM(scale);
+  content.innerHTML='';
+  content.appendChild(sheet);
+  openModal('sheet-modal');
+}
+
+function printA4Sheet() {
+  const landscape=document.getElementById('sheet-landscape').checked;
+  const {sheet}=buildSheetDOM(1);
+  const pr=document.getElementById('print-root');
+  pr.innerHTML='';
+  const wrapper=document.createElement('div');
+  const styleEl=document.createElement('style');
+  styleEl.textContent=`@page{margin:0;size:${landscape?'A4 landscape':'A4 portrait'}}`;
+  wrapper.appendChild(styleEl);
+  wrapper.appendChild(sheet);
+  pr.appendChild(wrapper);
+  setTimeout(()=>{ window.print(); setTimeout(()=>pr.innerHTML='',2000); },300);
+}
+
+async function exportSheetPDF() {
+  showLoading('Generating A4 sheet PDF…','This may take a moment…');
+  const landscape=document.getElementById('sheet-landscape').checked;
+  const {sheet,A4w_px,A4h_px}=buildSheetDOM(2);
+  sheet.style.boxShadow='none';
+  sheet.style.position='fixed';
+  sheet.style.left='-9999px';
+  sheet.style.top='0';
+  document.body.appendChild(sheet);
+  await pause(200);
+  try{
+    const canvas=await html2canvas(sheet,{scale:1,useCORS:true,allowTaint:true,backgroundColor:'#ffffff',width:A4w_px,height:A4h_px,logging:false});
+    const {jsPDF}=window.jspdf;
+    const orient=landscape?'landscape':'portrait';
+    const pdf=new jsPDF({unit:'mm',format:'a4',orientation:orient});
+    const W=landscape?297:210, H=landscape?210:297;
+    pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,W,H);
+    pdf.save('gtnb-a4-sheet.pdf');
+    toast('A4 sheet PDF exported!','success');
+  }catch(e){toast('PDF export failed: '+e.message,'error');}
+  document.body.removeChild(sheet);
+  hideLoading();
+}
+
+/* ═══════════════════════════════════════════════
+   CSV TEMPLATE
+═══════════════════════════════════════════════ */
+function selectCSVType(id, el) {
+  csvTypeSelected=id;
+  document.querySelectorAll('#csv-type-grid > div').forEach(x=>{
+    x.style.borderColor='var(--n200)'; x.style.background='var(--cream)'; x.style.color='var(--n600)';
+  });
+  el.style.borderColor='var(--g700)'; el.style.background='var(--g700)'; el.style.color='#fff';
+
+  const defs=FIELDS[id]||[];
+  const t=TYPES.find(x=>x.id===id);
+  const hdrs=defs.map(f=>f.id);
+  const samples=CSV_SAMPLES[id]||[[]];
+  let txt='# GT Nutri Bites — '+t.name+' CSV Template\n';
+  txt+='# Fill one row per label. Do not edit the header row.\n#\n';
+  defs.forEach(f=>{ txt+=`# "${f.id}" — ${f.label}${f.req?' (REQUIRED)':''}\n`; });
+  txt+='#\n';
+  if(hdrs.length) txt+=hdrs.map(h=>`"${h}"`).join(',')+'\n';
+  samples.forEach(row=>{ txt+=row.map(c=>`"${(c||'').replace(/"/g,'""')}"`).join(',')+'\n'; });
+  for(let i=samples.length;i<8;i++) { if(hdrs.length) txt+=hdrs.map(()=>'""').join(',')+'\n'; }
+
+  document.getElementById('csv-type-name').textContent=t.ico+' '+t.name;
+  document.getElementById('csv-cols-badge').textContent=defs.length+' columns';
+  document.getElementById('csv-pre').textContent=txt;
+  document.getElementById('csv-template-preview').style.display='block';
+  document.getElementById('csv-dl-btn').disabled=false;
+}
+
+function downloadCSV() {
+  if(!csvTypeSelected) return;
+  const defs=FIELDS[csvTypeSelected]||[];
+  const hdrs=defs.map(f=>f.id);
+  const samples=CSV_SAMPLES[csvTypeSelected]||[[]];
+  let txt='';
+  if(hdrs.length) txt+=hdrs.map(h=>`"${h}"`).join(',')+'\n';
+  samples.forEach(row=>{ txt+=row.map(c=>`"${(c||'').replace(/"/g,'""')}"`).join(',')+'\n'; });
+  for(let i=samples.length;i<10;i++) { if(hdrs.length) txt+=hdrs.map(()=>'""').join(',')+'\n'; }
+  const blob=new Blob([txt],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`gtnb-${csvTypeSelected}-template.csv`;
+  a.click();
+  toast('Template downloaded!','success');
+}
+
+function parseCSVText(text) {
+  const rows=[]; let cur=[]; let field=''; let inQ=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQ){if(ch==='"'&&text[i+1]==='"'){field+='"';i++;}else if(ch==='"')inQ=false;else field+=ch;}
+    else{if(ch==='"')inQ=true;else if(ch===','){cur.push(field);field='';}else if(ch==='\n'||(ch==='\r'&&text[i+1]==='\n')){if(ch==='\r')i++;if(cur.length||field){cur.push(field);rows.push(cur);cur=[];field='';}}else field+=ch;}
+  }
+  if(field||cur.length){cur.push(field);rows.push(cur);}
+  return rows.filter(r=>!r[0]?.startsWith('#'));
+}
+
+/* ═══════════════════════════════════════════════
+   DARK MODE
+═══════════════════════════════════════════════ */
+function toggleDark() {
+  document.body.classList.toggle('dark');
+  document.getElementById('dark-btn').textContent=document.body.classList.contains('dark')?'☀️':'🌙';
+  localStorage.setItem('gtnb_dark', document.body.classList.contains('dark')?'1':'0');
+}
+
+/* ═══════════════════════════════════════════════
+   MODALS
+═══════════════════════════════════════════════ */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+function toast(msg, type='info') {
+  const area=document.getElementById('toasts');
+  const el=document.createElement('div');
+  const icons={success:'✅',error:'❌',warn:'⚠️',info:'ℹ️'};
+  const types={success:'toast-success',error:'toast-error',warn:'toast-warn',info:'toast-info'};
+  el.className=`toast ${types[type]||'toast-info'}`;
+  el.innerHTML=`<span class="toast-ico">${icons[type]||'•'}</span><span>${msg}</span>`;
+  area.appendChild(el);
+  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),300); },3500);
+}
+
+/* ═══════════════════════════════════════════════
+   LOADING
+═══════════════════════════════════════════════ */
+function showLoading(text='Processing…', sub='') {
+  document.getElementById('load-text').textContent=text;
+  document.getElementById('load-sub').textContent=sub;
+  document.getElementById('load-bar').style.width='0%';
+  document.getElementById('loading').classList.add('on');
+}
+function hideLoading(){ document.getElementById('loading').classList.remove('on'); }
+function setLoadBar(pct){ document.getElementById('load-bar').style.width=pct+'%'; }
+
+/* ═══════════════════════════════════════════════
+   DRAG & DROP
+═══════════════════════════════════════════════ */
+function initDragDrop() {
+  const zone=document.getElementById('batch-upload-zone');
+  zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop',e=>{
+    e.preventDefault(); zone.classList.remove('drag');
+    const f=e.dataTransfer.files[0];
+    if(f){ const inp=document.getElementById('batch-file'); inp.files=e.dataTransfer.files; handleBatchFile(inp); }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD
+═══════════════════════════════════════════════ */
+function bindKeyboard() {
+  document.addEventListener('keydown', e=>{
+    if (document.querySelector('.modal-overlay.open')) {
+      if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+      return;
+    }
+    if(e.ctrlKey||e.metaKey){
+      if(e.key==='z'&&!e.shiftKey){ e.preventDefault(); undoState(); }
+      if(e.key==='y'||e.key==='z'&&e.shiftKey){ e.preventDefault(); redoState(); }
+      if(e.key==='s'){ e.preventDefault(); saveDesign(); }
+      if(e.key==='p'&&e.shiftKey){ e.preventDefault(); printA4Sheet(); }
+      else if(e.key==='p'){ e.preventDefault(); printSingle(); }
+    }
+    const active=document.activeElement;
+    const inInput=active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA'||active.tagName==='SELECT');
+    if(!inInput){
+      if(e.key==='+'||e.key==='='){ zoom(0.1); }
+      if(e.key==='-'){ zoom(-0.1); }
+      if(e.key==='0'){ fitZoom(); }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function pause(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+/* ═══════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', ()=>{
+  init();
+  initDragDrop();
+  // Apply dark mode preference
+  if(localStorage.getItem('gtnb_dark')==='1'){
+    document.body.classList.add('dark');
+    document.getElementById('dark-btn').textContent='☀️';
+  }
+  // Initial fit zoom
+  setTimeout(fitZoom, 100);
+});
+</script>
+</body>
+</html>
