@@ -1,0 +1,2961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LabelForge Pro — Business Label Generator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+/* ======================================================
+   CSS VARIABLES & RESET
+====================================================== */
+:root {
+  --ink: #111827;
+  --paper: #f8f7f5;
+  --cream: #f0ece6;
+  --white: #ffffff;
+  --amber: #d97706;
+  --amber-lite: #fffbeb;
+  --amber-mid: #fef3c7;
+  --green: #059669;
+  --red: #dc2626;
+  --blue: #2563eb;
+  --slate: #6b7280;
+  --slate-lite: #9ca3af;
+  --border: #e5e0d8;
+  --border-focus: #d97706;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.14);
+  --sidebar-w: 360px;
+  --header-h: 58px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --transition: all 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+h1,h2,h3,h4 { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; }
+a { color: var(--amber); text-decoration: none; }
+
+/* ======================================================
+   SCROLLBAR
+====================================================== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate-lite); }
+
+/* ======================================================
+   LAYOUT
+====================================================== */
+#app-sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  z-index: 50;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+#app-header {
+  position: fixed; top: 0;
+  left: var(--sidebar-w); right: 0;
+  height: var(--header-h);
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  z-index: 40;
+  transition: left 0.3s;
+}
+#main-content {
+  margin-left: var(--sidebar-w);
+  padding-top: var(--header-h);
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  transition: margin-left 0.3s;
+}
+#sidebar-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 45;
+  backdrop-filter: blur(2px);
+}
+
+/* ======================================================
+   SIDEBAR INTERNALS
+====================================================== */
+#sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.sidebar-logo-mark {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--ink), #374151);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+#sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stab {
+  flex: 1; padding: 10px 6px;
+  font-size: 11.5px; font-weight: 600;
+  text-align: center; cursor: pointer;
+  color: var(--slate); border-bottom: 2px solid transparent;
+  transition: var(--transition); user-select: none;
+  letter-spacing: 0.02em;
+}
+.stab:hover { color: var(--ink); }
+.stab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.stab-panel { display: none; flex: 1; overflow-y: auto; padding-bottom: 24px; }
+.stab-panel.active { display: block; }
+
+/* ======================================================
+   FORM ELEMENTS
+====================================================== */
+.field-group { padding: 0 16px 14px; }
+.field-label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--slate);
+  margin-bottom: 5px;
+}
+.field-label .tip {
+  font-size: 10px; font-weight: 400; letter-spacing: 0;
+  text-transform: none; color: var(--slate-lite);
+  cursor: help; border-bottom: 1px dotted var(--slate-lite);
+}
+.f-input {
+  width: 100%; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 11px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  background: var(--paper); color: var(--ink); outline: none;
+  transition: var(--transition);
+}
+.f-input:focus { border-color: var(--border-focus); background: var(--white); box-shadow: 0 0 0 3px rgba(217,119,6,0.12); }
+.f-input:hover:not(:focus) { border-color: #c9c2b8; }
+.f-input::placeholder { color: var(--slate-lite); }
+textarea.f-input { resize: vertical; min-height: 60px; line-height: 1.5; }
+select.f-input { cursor: pointer; }
+
+/* ======================================================
+   SECTION HEADERS (Accordion)
+====================================================== */
+.sec-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px 8px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--amber);
+  border-top: 1px solid var(--cream);
+  margin-top: 2px; cursor: pointer; user-select: none;
+  transition: var(--transition);
+}
+.sec-head:hover { background: var(--amber-lite); }
+.sec-head .chev { font-size: 10px; transition: transform 0.25s; opacity: 0.7; }
+.sec-head.open .chev { transform: rotate(180deg); }
+.sec-body { overflow: hidden; max-height: 0; transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1); }
+.sec-body.open { max-height: 4000px; }
+
+/* ======================================================
+   BUTTONS
+====================================================== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 16px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; cursor: pointer; border: none;
+  transition: var(--transition); font-family: 'DM Sans', sans-serif;
+  white-space: nowrap; line-height: 1;
+  position: relative; overflow: hidden;
+}
+.btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.15s;
+}
+.btn:hover::after { background: rgba(255,255,255,0.1); }
+.btn:active { transform: translateY(1px); }
+.btn-ink { background: var(--ink); color: #fff; }
+.btn-amber { background: var(--amber); color: #fff; }
+.btn-amber:hover { background: #b45309; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: #047857; }
+.btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--ink); }
+.btn-outline:hover { background: var(--cream); border-color: #c9c2b8; }
+.btn-ghost { background: transparent; color: var(--slate); padding: 7px 10px; }
+.btn-ghost:hover { background: var(--cream); color: var(--ink); }
+.btn-danger { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; }
+.btn-danger:hover { background: #fee2e2; }
+.btn-blue { background: var(--blue); color: #fff; }
+.btn-blue:hover { background: #1d4ed8; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-xs { padding: 4px 9px; font-size: 11px; }
+.btn-full { width: 100%; }
+.btn-icon { padding: 7px; }
+.btn-group { display: flex; gap: 6px; }
+
+/* ======================================================
+   TEMPLATE GRID
+====================================================== */
+.tmpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 16px 8px; }
+.tmpl-card {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 10px 8px; cursor: pointer; text-align: center;
+  font-size: 11px; font-weight: 600; line-height: 1.3;
+  transition: var(--transition); background: var(--paper); color: var(--slate);
+  position: relative; overflow: hidden;
+}
+.tmpl-card:hover { border-color: var(--amber); color: var(--ink); background: var(--amber-mid); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.tmpl-card.active { border-color: var(--amber); background: var(--amber); color: #fff; box-shadow: 0 2px 10px rgba(217,119,6,0.35); }
+.tmpl-card.active:hover { transform: none; }
+.tmpl-card .ticon { font-size: 22px; display: block; margin-bottom: 4px; }
+
+/* ======================================================
+   SIZE PRESETS
+====================================================== */
+.size-presets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.size-pill {
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--paper);
+  transition: var(--transition); color: var(--slate);
+}
+.size-pill:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-lite); }
+.size-pill.active { border-color: var(--amber); background: var(--amber); color: #fff; }
+
+/* ======================================================
+   LOGO ALIGNMENT GRID
+====================================================== */
+.logo-align-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 4px; background: var(--paper); border-radius: var(--radius);
+  border: 1.5px solid var(--border); padding: 4px;
+}
+.lag-cell {
+  aspect-ratio: 1; border-radius: 5px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: var(--transition);
+  background: transparent;
+}
+.lag-cell:hover { background: var(--amber-mid); }
+.lag-cell.active { background: var(--amber); }
+.lag-cell .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--slate-lite); transition: var(--transition);
+}
+.lag-cell.active .dot { background: #fff; }
+
+/* ======================================================
+   LOGO TRANSFORM CONTROLS
+====================================================== */
+.logo-transform-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ======================================================
+   COLOR PICKER
+====================================================== */
+.color-picker-row { display: flex; gap: 8px; align-items: center; }
+.color-swatch {
+  width: 38px; height: 38px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); cursor: pointer;
+  overflow: hidden; flex-shrink: 0; position: relative;
+}
+.color-swatch input[type="color"] {
+  position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px);
+  cursor: pointer; border: none; background: none; padding: 0;
+}
+.color-swatches-row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.cswatch {
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: var(--transition);
+  flex-shrink: 0;
+}
+.cswatch:hover { transform: scale(1.2); border-color: #fff; box-shadow: 0 0 0 2px var(--border); }
+.cswatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--amber); }
+
+/* ======================================================
+   TOAST
+====================================================== */
+#toast-area {
+  position: fixed; top: 20px; right: 20px;
+  z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px; border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  animation: toastIn 0.3s ease;
+  pointer-events: auto; cursor: default;
+  max-width: 320px;
+}
+.toast.out { animation: toastOut 0.3s ease forwards; }
+.toast-default { background: var(--ink); color: #fff; }
+.toast-success { background: #064e3b; color: #d1fae5; }
+.toast-error { background: #7f1d1d; color: #fee2e2; }
+.toast-info { background: #1e3a5f; color: #bfdbfe; }
+.toast-warn { background: #78350f; color: #fde68a; }
+.toast-icon { font-size: 16px; flex-shrink: 0; }
+@keyframes toastIn { from { transform: translateX(30px) scale(0.95); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastOut { to { transform: translateX(30px); opacity: 0; } }
+
+/* ======================================================
+   PREVIEW AREA
+====================================================== */
+#preview-area {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 40px 24px;
+  background:
+    radial-gradient(circle at 25px 25px, rgba(0,0,0,0.04) 2%, transparent 0%),
+    radial-gradient(circle at 75px 75px, rgba(0,0,0,0.04) 2%, transparent 0%);
+  background-size: 100px 100px;
+  position: relative; min-height: 400px;
+}
+#preview-zoom-area { position: relative; }
+#label-canvas {
+  background: #fff; border: 2px dashed #d1cbc3;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,0.04);
+  transition: width 0.3s, height 0.3s;
+}
+#label-canvas.print-border { border: none; }
+#label-inner {
+  width: 100%; height: 100%;
+  position: relative; overflow: hidden;
+}
+.zoom-controls {
+  position: absolute; bottom: -44px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 10px;
+  box-shadow: var(--shadow-sm);
+}
+.zoom-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 3px 7px; border-radius: 12px; transition: var(--transition); color: var(--ink); }
+.zoom-btn:hover { background: var(--cream); }
+.zoom-label { font-size: 12px; font-weight: 600; color: var(--slate); min-width: 40px; text-align: center; }
+#canvas-ruler-h, #canvas-ruler-v {
+  position: absolute; background: var(--cream); font-size: 9px; color: var(--slate);
+  display: flex; align-items: center; pointer-events: none;
+}
+
+/* ======================================================
+   LOADING OVERLAY
+====================================================== */
+#loading-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(248,247,245,0.88);
+  z-index: 9000; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  backdrop-filter: blur(4px);
+}
+#loading-overlay.active { display: flex; }
+.spinner {
+  width: 44px; height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; font-weight: 500; color: var(--slate); }
+.loading-sub { font-size: 12px; color: var(--slate-lite); }
+#loading-progress { width: 200px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+#loading-bar { height: 100%; width: 0%; background: var(--amber); transition: width 0.3s; border-radius: 2px; }
+
+/* ======================================================
+   BATCH PANEL
+====================================================== */
+#batch-panel { padding: 0 16px; }
+.batch-drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 28px 16px; text-align: center; cursor: pointer;
+  transition: var(--transition); background: var(--paper);
+}
+.batch-drop-zone:hover, .batch-drop-zone.drag-over {
+  border-color: var(--amber); background: var(--amber-lite);
+}
+.batch-row-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 12px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 10px;
+  transition: var(--transition);
+}
+.batch-row-card:hover { border-color: var(--amber); }
+.batch-row-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--amber); color: #fff;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.batch-status { font-size: 11px; margin-left: auto; }
+.batch-status.done { color: var(--green); }
+.batch-status.pending { color: var(--slate-lite); }
+.batch-status.error { color: var(--red); }
+#batch-progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+#batch-bar { height: 100%; width: 0; background: var(--amber); transition: width 0.3s; }
+
+/* ======================================================
+   CSV TEMPLATE MODAL
+====================================================== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 8000;
+  align-items: center; justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  background: var(--white); border-radius: 16px;
+  max-width: 760px; width: 100%; max-height: 85vh;
+  overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  animation: modalIn 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes modalIn { from { transform: scale(0.94) translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+.csv-preview {
+  font-family: 'Courier New', monospace; font-size: 11.5px;
+  background: #f1f5f9; border-radius: 8px; padding: 14px;
+  overflow-x: auto; white-space: pre;
+  border: 1px solid #e2e8f0; color: #334155;
+  max-height: 240px; overflow-y: auto;
+  line-height: 1.7;
+}
+.tmpl-select-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.tmpl-select-card {
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 10px 8px; cursor: pointer; text-align: center;
+  font-size: 11px; font-weight: 600; transition: var(--transition);
+  background: var(--paper); color: var(--slate);
+}
+.tmpl-select-card:hover { border-color: var(--amber); color: var(--ink); background: var(--amber-mid); }
+.tmpl-select-card.active { border-color: var(--amber); background: var(--amber); color: #fff; }
+.tmpl-select-card .icon { font-size: 18px; display: block; margin-bottom: 3px; }
+
+/* ======================================================
+   LOGO DROP ZONE
+====================================================== */
+#logo-drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 18px 16px; text-align: center; cursor: pointer;
+  transition: var(--transition); background: var(--paper);
+}
+#logo-drop-zone:hover, #logo-drop-zone.drag-over {
+  border-color: var(--amber); background: var(--amber-lite);
+}
+
+/* ======================================================
+   RANGE SLIDER
+====================================================== */
+input[type="range"] {
+  -webkit-appearance: none; width: 100%;
+  height: 4px; border-radius: 2px; background: var(--border);
+  outline: none; cursor: pointer; accent-color: var(--amber);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--amber);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer; transition: transform 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-val {
+  font-size: 11.5px; font-weight: 600; color: var(--amber);
+  min-width: 36px; text-align: right;
+}
+
+/* ======================================================
+   TOGGLE SWITCH
+====================================================== */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0;
+}
+.toggle-label { font-size: 13px; color: var(--ink); }
+.toggle-switch {
+  position: relative; width: 36px; height: 20px;
+  display: inline-block; flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0; border-radius: 10px;
+  background: var(--border); transition: var(--transition); cursor: pointer;
+}
+.toggle-track::before {
+  content: ''; position: absolute;
+  width: 14px; height: 14px; left: 3px; bottom: 3px;
+  border-radius: 50%; background: #fff;
+  transition: var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-track { background: var(--amber); }
+.toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); }
+
+/* ======================================================
+   BADGE
+====================================================== */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+}
+.badge-amber { background: var(--amber-mid); color: #92400e; }
+.badge-green { background: #d1fae5; color: #065f46; }
+.badge-blue { background: #dbeafe; color: #1e40af; }
+.badge-red { background: #fee2e2; color: #991b1b; }
+.badge-gray { background: var(--cream); color: var(--slate); }
+
+/* ======================================================
+   KEYBOARD SHORTCUT CHIP
+====================================================== */
+.kbd {
+  display: inline-block; padding: 2px 6px;
+  background: var(--cream); border: 1px solid var(--border);
+  border-radius: 4px; font-size: 10px; font-family: monospace;
+  color: var(--slate); font-weight: 600;
+}
+
+/* ======================================================
+   TIPS SECTION
+====================================================== */
+.tip-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  transition: var(--transition);
+}
+.tip-card:hover { border-color: var(--amber); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+
+/* ======================================================
+   DARK MODE
+====================================================== */
+body.dark {
+  --ink: #f1f5f9; --paper: #111827; --cream: #1f2937;
+  --white: #1a2232; --border: #2d3a4a; --slate: #94a3b8;
+  --slate-lite: #64748b; --amber-lite: #1c1408; --amber-mid: #2d1e06;
+}
+body.dark #app-header, body.dark #app-sidebar { background: var(--white); }
+body.dark .f-input { background: #0f172a; border-color: var(--border); }
+body.dark .f-input:focus { background: #0f172a; }
+
+/* ======================================================
+   MOBILE RESPONSIVE
+====================================================== */
+@media (max-width: 900px) {
+  #app-sidebar { transform: translateX(-100%); }
+  #app-sidebar.mobile-open { transform: translateX(0); box-shadow: var(--shadow-lg); }
+  #app-header { left: 0; }
+  #main-content { margin-left: 0; }
+  #sidebar-overlay.active { display: block; }
+  #preview-area { padding: 20px 12px; }
+  .mobile-menu-btn { display: flex !important; }
+}
+.mobile-menu-btn { display: none; }
+
+/* ======================================================
+   PRINT STYLES
+====================================================== */
+@media print {
+  html, body { margin: 0; padding: 0; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body > * { display: none !important; }
+  #print-frame-container { display: block !important; }
+  @page { margin: 0; size: auto; }
+}
+#print-frame-container { display: none; }
+
+/* ======================================================
+   BATCH PREVIEW MODAL
+====================================================== */
+#batch-preview-modal .modal-box { max-width: 1000px; }
+.batch-preview-grid { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+.batch-preview-item { position: relative; cursor: pointer; }
+.batch-preview-item .del-btn {
+  position: absolute; top: -8px; right: -8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--red); color: #fff; border: none;
+  font-size: 12px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  opacity: 0; transition: var(--transition);
+}
+.batch-preview-item:hover .del-btn { opacity: 1; }
+
+/* ======================================================
+   UNDO/REDO INDICATOR
+====================================================== */
+#undo-indicator {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink); color: #fff;
+  padding: 6px 14px; border-radius: 20px; font-size: 12px;
+  opacity: 0; transition: opacity 0.3s;
+  z-index: 200; pointer-events: none;
+}
+#undo-indicator.show { opacity: 1; }
+
+/* ======================================================
+   MISC
+====================================================== */
+.divider { height: 1px; background: var(--border); margin: 2px 0; }
+.text-slate { color: var(--slate); }
+.text-xs { font-size: 11px; }
+.text-sm { font-size: 12.5px; }
+.flex-row { display: flex; gap: 8px; align-items: center; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mt-2 { margin-top: 8px; }
+.mb-2 { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     TOAST AREA
+================================================================ -->
+<div id="toast-area" aria-live="polite"></div>
+
+<!-- ================================================================
+     LOADING OVERLAY
+================================================================ -->
+<div id="loading-overlay" role="progressbar" aria-label="Processing">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Processing…</div>
+  <div class="loading-sub" id="loading-sub"></div>
+  <div id="loading-progress"><div id="loading-bar"></div></div>
+</div>
+
+<!-- ================================================================
+     UNDO INDICATOR
+================================================================ -->
+<div id="undo-indicator"></div>
+
+<!-- ================================================================
+     SIDEBAR
+================================================================ -->
+<aside id="app-sidebar" role="complementary" aria-label="Label Settings">
+
+  <!-- Brand Header -->
+  <div id="sidebar-header">
+    <div class="sidebar-logo-mark" aria-hidden="true">🏷</div>
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:17px;line-height:1.1;">LabelForge <span style="font-size:11px;background:var(--amber);color:#fff;padding:1px 6px;border-radius:10px;font-family:'DM Sans',sans-serif;font-weight:700;">PRO</span></div>
+      <div style="font-size:10px;color:var(--slate-lite);margin-top:1px;">Professional Label Generator</div>
+    </div>
+    <button class="btn btn-ghost btn-icon mobile-menu-btn" onclick="toggleSidebar()" style="margin-left:auto;" aria-label="Close sidebar">✕</button>
+  </div>
+
+  <!-- Tabs -->
+  <div id="sidebar-tabs" role="tablist">
+    <div class="stab active" role="tab" aria-selected="true" onclick="switchTab('design',this)" id="tab-design">🎨 Design</div>
+    <div class="stab" role="tab" aria-selected="false" onclick="switchTab('batch',this)" id="tab-batch">📋 Batch</div>
+    <div class="stab" role="tab" aria-selected="false" onclick="switchTab('export',this)" id="tab-export">⬇ Export</div>
+  </div>
+
+  <!-- ========== DESIGN TAB ========== -->
+  <div id="panel-design" class="stab-panel active" role="tabpanel">
+
+    <!-- Template Selection -->
+    <div style="padding:12px 16px 6px;">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;">Label Type</div>
+      <div class="tmpl-grid" id="tmpl-grid"></div>
+    </div>
+
+    <!-- Label Size -->
+    <div class="sec-head open" onclick="toggleSection(this)">Label Size <span class="chev">▾</span></div>
+    <div class="sec-body open">
+      <div class="field-group">
+        <div class="field-label">Quick Sizes <span class="tip" title="Standard label printer widths">What's this?</span></div>
+        <div class="size-presets" id="size-presets">
+          <div class="size-pill" data-w="2" data-h="1">2×1"</div>
+          <div class="size-pill" data-w="2" data-h="2">2×2"</div>
+          <div class="size-pill active" data-w="4" data-h="2.5">4×2.5"</div>
+          <div class="size-pill" data-w="4" data-h="6">4×6"</div>
+          <div class="size-pill" data-w="6" data-h="4">6×4"</div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <div class="field-label">Width (in)</div>
+            <input type="number" class="f-input" id="lbl-w" value="4" step="0.25" min="1" max="12" aria-label="Label width in inches">
+          </div>
+          <div>
+            <div class="field-label">Height (in)</div>
+            <input type="number" class="f-input" id="lbl-h" value="2.5" step="0.25" min="0.5" max="12" aria-label="Label height in inches">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logo -->
+    <div class="sec-head open" onclick="toggleSection(this)">Logo <span class="chev">▾</span></div>
+    <div class="sec-body open">
+      <div class="field-group">
+        <div id="logo-drop-zone" role="button" tabindex="0" aria-label="Upload logo by clicking or dropping a file"
+             onclick="document.getElementById('logo-file-input').click()"
+             ondragover="logoDragOver(event)" ondragleave="logoDragLeave(event)" ondrop="logoDrop(event)"
+             onkeydown="if(event.key==='Enter')document.getElementById('logo-file-input').click()">
+          <div id="logo-dz-content">
+            <div style="font-size:32px;">🖼</div>
+            <div style="font-size:13px;font-weight:600;margin-top:6px;color:var(--ink);">Drop logo here</div>
+            <div style="font-size:11px;color:var(--slate);margin-top:2px;">or click to browse — PNG · JPG · SVG</div>
+          </div>
+        </div>
+        <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none" aria-label="Logo file upload">
+
+        <!-- Logo Controls (hidden until logo uploaded) -->
+        <div id="logo-controls" style="display:none;margin-top:12px;">
+
+          <!-- Position Grid -->
+          <div class="field-label" style="margin-bottom:6px;">Position in Label</div>
+          <div class="logo-align-grid" id="logo-pos-grid" role="group" aria-label="Logo position">
+            <div class="lag-cell" data-pos="tl" title="Top Left" onclick="setLogoPos('tl',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="tc" title="Top Center" onclick="setLogoPos('tc',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="tr" title="Top Right" onclick="setLogoPos('tr',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="ml" title="Middle Left" onclick="setLogoPos('ml',this)"><div class="dot"></div></div>
+            <div class="lag-cell active" data-pos="mc" title="Middle Center" onclick="setLogoPos('mc',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="mr" title="Middle Right" onclick="setLogoPos('mr',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="bl" title="Bottom Left" onclick="setLogoPos('bl',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="bc" title="Bottom Center" onclick="setLogoPos('bc',this)"><div class="dot"></div></div>
+            <div class="lag-cell" data-pos="br" title="Bottom Right" onclick="setLogoPos('br',this)"><div class="dot"></div></div>
+          </div>
+
+          <!-- Size & Opacity -->
+          <div style="margin-top:10px;">
+            <div class="field-label">Size <span class="range-val" id="logo-size-val">80px</span></div>
+            <input type="range" id="logo-size-range" min="20" max="220" value="80" aria-label="Logo size">
+          </div>
+          <div style="margin-top:10px;">
+            <div class="field-label">Opacity <span class="range-val" id="logo-opacity-val">100%</span></div>
+            <input type="range" id="logo-opacity-range" min="10" max="100" value="100" aria-label="Logo opacity">
+          </div>
+
+          <!-- Rotation & Radius -->
+          <div class="grid-2 mt-2">
+            <div>
+              <div class="field-label">Rotation <span class="range-val" id="logo-rot-val">0°</span></div>
+              <input type="range" id="logo-rot-range" min="-180" max="180" value="0" aria-label="Logo rotation">
+            </div>
+            <div>
+              <div class="field-label">Roundness <span class="range-val" id="logo-radius-val">0</span></div>
+              <input type="range" id="logo-radius-range" min="0" max="50" value="0" aria-label="Logo border radius">
+            </div>
+          </div>
+
+          <!-- Offset -->
+          <div class="grid-2 mt-2">
+            <div>
+              <div class="field-label">Offset X <span class="range-val" id="logo-offx-val">0</span></div>
+              <input type="range" id="logo-offx-range" min="-100" max="100" value="0" aria-label="Logo X offset">
+            </div>
+            <div>
+              <div class="field-label">Offset Y <span class="range-val" id="logo-offy-val">0</span></div>
+              <input type="range" id="logo-offy-range" min="-100" max="100" value="0" aria-label="Logo Y offset">
+            </div>
+          </div>
+
+          <!-- Effects -->
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
+            <div class="toggle-row">
+              <span class="toggle-label">Drop Shadow</span>
+              <label class="toggle-switch"><input type="checkbox" id="logo-shadow-toggle" onchange="updatePreview()"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">Grayscale</span>
+              <label class="toggle-switch"><input type="checkbox" id="logo-gray-toggle" onchange="updatePreview()"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">Background Plate</span>
+              <label class="toggle-switch"><input type="checkbox" id="logo-bg-toggle" onchange="updatePreview()"><span class="toggle-track"></span></label>
+            </div>
+          </div>
+          <div id="logo-bg-color-row" style="display:none;margin-top:6px;">
+            <div class="field-label">Plate Color</div>
+            <div class="color-picker-row">
+              <div class="color-swatch"><input type="color" id="logo-bg-color" value="#ffffff" oninput="updatePreview()"></div>
+              <input type="text" class="f-input" id="logo-bg-color-text" value="#ffffff" style="flex:1" placeholder="#ffffff">
+            </div>
+          </div>
+
+          <button class="btn btn-danger btn-sm btn-full" style="margin-top:12px;" onclick="removeLogo()" aria-label="Remove logo">✕ Remove Logo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Label Content (Dynamic) -->
+    <div class="sec-head open" onclick="toggleSection(this)">Label Content <span class="chev">▾</span></div>
+    <div class="sec-body open">
+      <div id="dynamic-fields"></div>
+    </div>
+
+    <!-- Typography -->
+    <div class="sec-head" onclick="toggleSection(this)">Typography <span class="chev">▾</span></div>
+    <div class="sec-body">
+      <div class="field-group">
+        <div class="field-label">Font Family</div>
+        <select class="f-input" id="font-family" aria-label="Font family">
+          <option value="'DM Sans', sans-serif">DM Sans (Default)</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="Verdana, sans-serif">Verdana</option>
+          <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+          <option value="Impact, sans-serif">Impact</option>
+          <option value="'Palatino Linotype', serif">Palatino</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Font Size <span class="range-val" id="font-size-val">13px</span></div>
+        <input type="range" id="font-size-range" min="8" max="26" value="13" aria-label="Font size">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Font Weight</div>
+        <select class="f-input" id="font-weight" aria-label="Font weight">
+          <option value="300">Light 300</option>
+          <option value="400" selected>Regular 400</option>
+          <option value="500">Medium 500</option>
+          <option value="600">Semibold 600</option>
+          <option value="700">Bold 700</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Text Alignment</div>
+        <div class="btn-group" role="group" aria-label="Text alignment">
+          <button class="btn btn-outline btn-sm text-align-btn" data-align="left" onclick="setTextAlign('left',this)" aria-pressed="true">← Left</button>
+          <button class="btn btn-outline btn-sm text-align-btn" data-align="center" onclick="setTextAlign('center',this)">↔ Center</button>
+          <button class="btn btn-outline btn-sm text-align-btn" data-align="right" onclick="setTextAlign('right',this)">→ Right</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Line Height <span class="range-val" id="line-height-val">1.4</span></div>
+        <input type="range" id="line-height-range" min="10" max="30" value="14" aria-label="Line height">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Letter Spacing <span class="range-val" id="letter-spacing-val">0</span></div>
+        <input type="range" id="letter-spacing-range" min="-2" max="10" value="0" step="0.5" aria-label="Letter spacing">
+      </div>
+    </div>
+
+    <!-- Colors & Theme -->
+    <div class="sec-head" onclick="toggleSection(this)">Colors & Theme <span class="chev">▾</span></div>
+    <div class="sec-body">
+      <div class="field-group">
+        <div class="field-label">Background</div>
+        <div class="color-picker-row">
+          <div class="color-swatch"><input type="color" id="color-bg" value="#ffffff" oninput="syncColor('bg',this.value)"></div>
+          <input type="text" class="f-input" id="color-bg-text" value="#ffffff" style="flex:1" oninput="syncColorFromText('bg',this.value)">
+        </div>
+        <div class="color-swatches-row" id="bg-swatches"></div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Text Color</div>
+        <div class="color-picker-row">
+          <div class="color-swatch"><input type="color" id="color-text" value="#111827" oninput="syncColor('text',this.value)"></div>
+          <input type="text" class="f-input" id="color-text-text" value="#111827" style="flex:1" oninput="syncColorFromText('text',this.value)">
+        </div>
+        <div class="color-swatches-row" id="text-swatches"></div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Accent Color</div>
+        <div class="color-picker-row">
+          <div class="color-swatch"><input type="color" id="color-accent" value="#d97706" oninput="syncColor('accent',this.value)"></div>
+          <input type="text" class="f-input" id="color-accent-text" value="#d97706" style="flex:1" oninput="syncColorFromText('accent',this.value)">
+        </div>
+        <div class="color-swatches-row" id="accent-swatches"></div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Theme Presets</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+          <button class="btn btn-outline btn-xs" onclick="applyPreset('minimal')" title="White/Black/Dark">Minimal</button>
+          <button class="btn btn-outline btn-xs" onclick="applyPreset('modern')" title="Dark/Sky">Modern</button>
+          <button class="btn btn-outline btn-xs" onclick="applyPreset('bold')" title="Red/Yellow">Bold</button>
+          <button class="btn btn-outline btn-xs" onclick="applyPreset('elegant')" title="Navy/Gold">Elegant</button>
+          <button class="btn btn-outline btn-xs" onclick="applyPreset('eco')" title="Green">Eco</button>
+          <button class="btn btn-outline btn-xs" onclick="applyPreset('pastel')" title="Pink/Lavender">Pastel</button>
+        </div>
+        <button class="btn btn-ghost btn-xs" style="margin-top:6px;" onclick="resetColors()">↺ Reset Colors</button>
+      </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="sec-head" onclick="toggleSection(this)">QR Code <span class="chev">▾</span></div>
+    <div class="sec-body">
+      <div class="field-group">
+        <div class="toggle-row" style="margin-bottom:10px;">
+          <span class="toggle-label" style="font-weight:600;">Enable QR Code</span>
+          <label class="toggle-switch"><input type="checkbox" id="qr-toggle" onchange="updatePreview()"><span class="toggle-track"></span></label>
+        </div>
+        <div class="field-label">URL or Text</div>
+        <input type="url" class="f-input" id="qr-url" placeholder="https://yourbusiness.com" aria-label="QR code URL">
+        <div style="margin-top:10px;">
+          <div class="field-label">QR Size <span class="range-val" id="qr-size-val">64px</span></div>
+          <input type="range" id="qr-size-range" min="40" max="140" value="64" aria-label="QR code size">
+        </div>
+        <div style="margin-top:8px;">
+          <div class="field-label">Position</div>
+          <select class="f-input" id="qr-position" onchange="updatePreview()" aria-label="QR code position">
+            <option value="bottom-right">Bottom Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="top-left">Top Left</option>
+            <option value="inline">Inline with Content</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barcode -->
+    <div class="sec-head" onclick="toggleSection(this)">Barcode <span class="chev">▾</span></div>
+    <div class="sec-body">
+      <div class="field-group">
+        <div class="toggle-row" style="margin-bottom:10px;">
+          <span class="toggle-label" style="font-weight:600;">Enable Barcode</span>
+          <label class="toggle-switch"><input type="checkbox" id="barcode-toggle" onchange="updatePreview()"><span class="toggle-track"></span></label>
+        </div>
+        <div class="field-label">Value (SKU, Tracking No., etc.)</div>
+        <input type="text" class="f-input" id="barcode-value" placeholder="SKU-001" aria-label="Barcode value">
+        <div style="margin-top:8px;">
+          <div class="field-label">Format</div>
+          <select class="f-input" id="barcode-format" onchange="updatePreview()" aria-label="Barcode format">
+            <option value="CODE128">Code 128 (Default)</option>
+            <option value="EAN13">EAN-13</option>
+            <option value="UPC">UPC</option>
+            <option value="CODE39">Code 39</option>
+            <option value="ITF14">ITF-14</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced -->
+    <div class="sec-head" onclick="toggleSection(this)">Advanced Layout <span class="chev">▾</span></div>
+    <div class="sec-body">
+      <div class="field-group">
+        <div class="field-label">Padding <span class="range-val" id="padding-val">16px</span></div>
+        <input type="range" id="padding-range" min="4" max="48" value="16" aria-label="Label padding">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Corner Radius <span class="range-val" id="radius-val">0px</span></div>
+        <input type="range" id="corner-radius-range" min="0" max="32" value="0" aria-label="Corner radius">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Border Style</div>
+        <select class="f-input" id="border-style" onchange="updatePreview()" aria-label="Border style">
+          <option value="none">None</option>
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="double">Double</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Border Width <span class="range-val" id="border-w-val">1px</span></div>
+        <input type="range" id="border-width-range" min="1" max="8" value="1" aria-label="Border width">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Border Color</div>
+        <div class="color-picker-row">
+          <div class="color-swatch"><input type="color" id="color-border" value="#000000" oninput="updatePreview()"></div>
+          <input type="text" class="f-input" value="#000000" id="color-border-text" style="flex:1">
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="toggle-row">
+          <span class="toggle-label">Background Pattern</span>
+          <label class="toggle-switch"><input type="checkbox" id="bg-pattern-toggle" onchange="updatePreview()"><span class="toggle-track"></span></label>
+        </div>
+        <div id="bg-pattern-row" style="margin-top:8px;display:none;">
+          <select class="f-input" id="bg-pattern" onchange="updatePreview()">
+            <option value="dots">Dots</option>
+            <option value="lines">Lines</option>
+            <option value="grid">Grid</option>
+            <option value="diagonal">Diagonal</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save/Load -->
+    <div class="sec-head" onclick="toggleSection(this)">Save & Load <span class="chev">▾</span></div>
+    <div class="sec-body">
+      <div class="field-group">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-outline btn-sm btn-full" onclick="saveDesign()">💾 Save Design to Browser</button>
+          <button class="btn btn-outline btn-sm btn-full" onclick="loadDesign()">📂 Load Saved Design</button>
+          <button class="btn btn-outline btn-sm btn-full" onclick="exportDesignJSON()">📤 Export Design (JSON)</button>
+          <button class="btn btn-outline btn-sm btn-full" onclick="document.getElementById('import-json').click()">📥 Import Design (JSON)</button>
+          <input type="file" id="import-json" accept=".json" style="display:none" onchange="importDesignJSON(this)">
+          <button class="btn btn-danger btn-sm btn-full" onclick="clearAll()">🗑 Clear All</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dark Mode -->
+    <div style="padding:12px 16px 4px;border-top:1px solid var(--border);">
+      <div class="toggle-row">
+        <span class="toggle-label" style="font-size:12px;">Dark Mode</span>
+        <label class="toggle-switch"><input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode(this)"><span class="toggle-track"></span></label>
+      </div>
+    </div>
+
+  </div><!-- /panel-design -->
+
+  <!-- ========== BATCH TAB ========== -->
+  <div id="panel-batch" class="stab-panel" role="tabpanel">
+    <div id="batch-panel">
+
+      <!-- Batch Label Type -->
+      <div style="padding-top:14px;">
+        <div class="field-label" style="margin-bottom:6px;">Label Type for Batch</div>
+        <select class="f-input" id="batch-label-type" aria-label="Batch label type">
+          <option value="">— Select Label Type —</option>
+        </select>
+      </div>
+
+      <!-- CSV Template Download -->
+      <div style="margin:12px 0 6px;">
+        <div style="font-size:12px;color:var(--slate);margin-bottom:8px;line-height:1.5;">
+          Download a CSV template, fill it in with your data, then upload it below to generate multiple labels at once.
+        </div>
+        <button class="btn btn-blue btn-sm btn-full" onclick="openCSVTemplateModal()" aria-label="Download CSV template">
+          📄 View & Download CSV Template
+        </button>
+      </div>
+
+      <div class="divider" style="margin:14px 0;"></div>
+
+      <!-- CSV Upload -->
+      <div class="field-label">Upload Filled CSV</div>
+      <div class="batch-drop-zone" id="batch-drop-zone" role="button" tabindex="0"
+           onclick="document.getElementById('batch-csv-input').click()"
+           ondragover="batchDragOver(event)" ondragleave="batchDragLeave(event)" ondrop="batchDrop(event)"
+           aria-label="Upload CSV file">
+        <div style="font-size:28px;margin-bottom:8px;">📂</div>
+        <div style="font-size:13px;font-weight:600;color:var(--ink);">Drop CSV file here</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:3px;">or click to browse</div>
+      </div>
+      <input type="file" id="batch-csv-input" accept=".csv" style="display:none" onchange="handleBatchCSV(this)">
+
+      <!-- Batch Stats -->
+      <div id="batch-stats" style="display:none;margin-top:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:600;" id="batch-count-label">0 labels ready</span>
+          <button class="btn btn-ghost btn-xs" onclick="clearBatch()">✕ Clear</button>
+        </div>
+        <div id="batch-progress-bar"><div id="batch-bar"></div></div>
+        <div id="batch-rows-list" style="margin-top:8px;max-height:300px;overflow-y:auto;"></div>
+      </div>
+
+      <div class="divider" style="margin:14px 0;"></div>
+
+      <!-- Batch Actions -->
+      <div style="display:flex;flex-direction:column;gap:8px;" id="batch-actions">
+        <button class="btn btn-amber btn-sm btn-full" onclick="openBatchPreview()" id="btn-batch-preview">
+          👁 Preview All Labels
+        </button>
+        <button class="btn btn-ink btn-sm btn-full" onclick="batchPrintAll()" id="btn-batch-print">
+          🖨 Print All Labels
+        </button>
+        <button class="btn btn-green btn-sm btn-full" onclick="batchDownloadPDF()" id="btn-batch-pdf">
+          ⬇ Export All as PDF
+        </button>
+        <button class="btn btn-outline btn-sm btn-full" onclick="batchDownloadPNGs()" id="btn-batch-png">
+          ⬇ Export All as PNGs (ZIP)
+        </button>
+      </div>
+
+      <div style="padding:12px 0;border-top:1px solid var(--border);margin-top:14px;">
+        <div style="font-size:11px;color:var(--slate);line-height:1.6;">
+          💡 <strong>Tip:</strong> Use your design settings (colors, fonts, logo) from the Design tab — they apply to all batch labels. Upload a logo in the Design tab for it to appear on batch labels.
+        </div>
+      </div>
+    </div>
+  </div><!-- /panel-batch -->
+
+  <!-- ========== EXPORT TAB ========== -->
+  <div id="panel-export" class="stab-panel" role="tabpanel">
+    <div style="padding:14px 16px;">
+
+      <div style="font-size:13px;color:var(--slate);line-height:1.6;margin-bottom:16px;">
+        Export your current label design as a print-ready PDF or PNG image.
+      </div>
+
+      <!-- Single Label Export -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;">Single Label</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-ink btn-sm btn-full" onclick="handlePrint()">🖨 Print Label</button>
+        <button class="btn btn-amber btn-sm btn-full" onclick="downloadPDF()">⬇ Download PDF</button>
+        <button class="btn btn-outline btn-sm btn-full" onclick="downloadPNG()">⬇ Download PNG</button>
+        <button class="btn btn-outline btn-sm btn-full" onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+      </div>
+
+      <div class="divider" style="margin:16px 0;"></div>
+
+      <!-- PDF Options -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;">PDF Options</div>
+      <div class="field-group" style="padding:0;margin-bottom:12px;">
+        <div class="field-label">Export Resolution</div>
+        <select class="f-input" id="export-dpi" aria-label="Export resolution">
+          <option value="1">72 DPI — Screen</option>
+          <option value="2" selected>144 DPI — Standard Print</option>
+          <option value="3">216 DPI — High Quality</option>
+          <option value="4">288 DPI — Professional</option>
+        </select>
+      </div>
+      <div class="field-group" style="padding:0;margin-bottom:12px;">
+        <div class="toggle-row">
+          <span class="toggle-label">Include crop marks</span>
+          <label class="toggle-switch"><input type="checkbox" id="crop-marks-toggle"><span class="toggle-track"></span></label>
+        </div>
+      </div>
+
+      <div class="divider" style="margin:16px 0;"></div>
+
+      <!-- Keyboard Shortcuts -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;">Keyboard Shortcuts</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--slate);">
+        <div class="flex-row" style="justify-content:space-between;"><span>Print</span><span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">P</kbd></span></div>
+        <div class="flex-row" style="justify-content:space-between;"><span>Save Design</span><span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">S</kbd></span></div>
+        <div class="flex-row" style="justify-content:space-between;"><span>Undo</span><span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">Z</kbd></span></div>
+        <div class="flex-row" style="justify-content:space-between;"><span>Redo</span><span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">Y</kbd></span></div>
+        <div class="flex-row" style="justify-content:space-between;"><span>Zoom In</span><span><kbd class="kbd">+</kbd></span></div>
+        <div class="flex-row" style="justify-content:space-between;"><span>Zoom Out</span><span><kbd class="kbd">-</kbd></span></div>
+        <div class="flex-row" style="justify-content:space-between;"><span>Reset Zoom</span><span><kbd class="kbd">0</kbd></span></div>
+      </div>
+    </div>
+  </div><!-- /panel-export -->
+
+</aside><!-- /sidebar -->
+
+<!-- Sidebar Overlay (mobile) -->
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ================================================================
+     HEADER
+================================================================ -->
+<header id="app-header" role="banner">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="btn btn-ghost btn-icon mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open sidebar" style="display:none">☰</button>
+    <div>
+      <span style="font-family:'DM Serif Display',serif;font-size:18px;">Label Preview</span>
+      <span id="active-type-badge" class="badge badge-amber" style="margin-left:10px;">Logo Only</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:12px;color:var(--slate);" id="size-display-header">4" × 2.5" · 384×240px</span>
+    <button class="btn btn-ghost btn-icon" onclick="undoAction()" title="Undo (Ctrl+Z)" aria-label="Undo">↩</button>
+    <button class="btn btn-ghost btn-icon" onclick="redoAction()" title="Redo (Ctrl+Y)" aria-label="Redo">↪</button>
+    <button class="btn btn-outline btn-sm" onclick="handlePrint()" aria-label="Print label">🖨 Print</button>
+    <button class="btn btn-amber btn-sm" onclick="downloadPDF()" aria-label="Download PDF">⬇ PDF</button>
+  </div>
+</header>
+
+<!-- ================================================================
+     MAIN CONTENT
+================================================================ -->
+<main id="main-content">
+
+  <!-- Preview Area -->
+  <div id="preview-area">
+    <div id="preview-zoom-area">
+      <div id="label-canvas" role="img" aria-label="Label preview">
+        <div id="label-inner"></div>
+      </div>
+      <!-- Zoom Controls -->
+      <div class="zoom-controls" aria-label="Zoom controls">
+        <button class="zoom-btn" onclick="adjustZoom(-0.1)" aria-label="Zoom out" title="Zoom out (-)">−</button>
+        <span class="zoom-label" id="zoom-label">100%</span>
+        <button class="zoom-btn" onclick="adjustZoom(0.1)" aria-label="Zoom in" title="Zoom in (+)">+</button>
+        <button class="zoom-btn" onclick="resetZoom()" aria-label="Reset zoom" title="Reset zoom (0)" style="font-size:11px;">⊙</button>
+        <button class="zoom-btn" onclick="fitToView()" aria-label="Fit to view" title="Fit to view" style="font-size:11px;">⤢</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tips Section -->
+  <section style="background:var(--white);border-top:1px solid var(--border);padding:36px 40px 40px;" aria-labelledby="tips-heading">
+    <h2 id="tips-heading" style="font-size:22px;margin-bottom:6px;">Designing Perfect Business Labels</h2>
+    <p style="font-size:13px;color:var(--slate);margin-bottom:24px;max-width:600px;">Follow these proven best practices to create labels that are professional, compliant, and effective for your brand.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">✨</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Keep It Simple</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Use no more than 2–3 fonts and prioritize your most important information. White space is your friend.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">🎨</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Brand Consistency</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Match your exact brand colors and logo usage across all label types for a cohesive, professional look.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">⚖️</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Stay Compliant</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Check industry regulations — food, cosmetics, and hazardous products have specific labeling requirements.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">♿</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Accessible Design</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Maintain 4.5:1 contrast ratio minimum for text. Avoid relying on color alone to convey important info.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">🖨</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Always Test Print</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Print one test label at actual size on your target printer before running a full batch. Colors can shift.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">📐</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Use SVG Logos</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">SVG files scale infinitely without pixelation. If SVG isn't available, use the highest resolution PNG you have.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">📦</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Right Label Size</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Match your label size to your product and printer. 4×6" is standard for shipping; 2×1" for small items.</div></div>
+      <div class="tip-card"><div style="font-size:24px;margin-bottom:8px;">🌱</div><div style="font-weight:700;font-size:13px;margin-bottom:4px;">Eco Considerations</div><div style="font-size:12px;color:var(--slate);line-height:1.6;">Use recyclable label stock when possible and mention it on your eco labels to appeal to conscious consumers.</div></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================================================================
+     HIDDEN PRINT CONTAINER
+================================================================ -->
+<div id="print-frame-container"></div>
+
+<!-- ================================================================
+     CSV TEMPLATE MODAL
+================================================================ -->
+<div class="modal-overlay" id="csv-modal" role="dialog" aria-modal="true" aria-labelledby="csv-modal-title">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="csv-modal-title" style="font-size:18px;">CSV Template Generator</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('csv-modal')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--slate);margin-bottom:16px;">Select a label type to generate its CSV template with proper column headers and sample data.</p>
+      <div class="tmpl-select-grid" id="csv-tmpl-select-grid"></div>
+      <div id="csv-preview-area" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-weight:600;font-size:13px;" id="csv-preview-title"></div>
+          <div class="badge badge-gray" id="csv-col-count"></div>
+        </div>
+        <div class="csv-preview" id="csv-preview-content"></div>
+        <div style="margin-top:12px;font-size:12px;color:var(--slate);line-height:1.6;background:var(--amber-lite);border:1px solid var(--amber-mid);border-radius:8px;padding:10px;">
+          💡 <strong>Instructions:</strong> The first row contains column headers — do not change them. Add one row per label. Leave optional columns blank if not needed. Save the file as UTF-8 CSV.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('csv-modal')">Close</button>
+      <button class="btn btn-amber btn-sm" onclick="downloadCSVTemplate()" id="btn-download-csv" disabled>⬇ Download Template</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     BATCH PREVIEW MODAL
+================================================================ -->
+<div class="modal-overlay" id="batch-preview-modal" role="dialog" aria-modal="true" aria-labelledby="batch-preview-title">
+  <div class="modal-box" id="batch-preview-modal-box" style="max-width:960px;">
+    <div class="modal-header">
+      <h3 id="batch-preview-title" style="font-size:18px;">Batch Preview</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge badge-amber" id="batch-preview-count">0 labels</span>
+        <button class="btn btn-ghost btn-icon" onclick="closeModal('batch-preview-modal')" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="batch-preview-content" class="batch-preview-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('batch-preview-modal')">Close</button>
+      <button class="btn btn-ink btn-sm" onclick="batchPrintAll();closeModal('batch-preview-modal')">🖨 Print All</button>
+      <button class="btn btn-amber btn-sm" onclick="batchDownloadPDF();closeModal('batch-preview-modal')">⬇ PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT
+================================================================ -->
+<script>
+'use strict';
+
+/* ============================================================
+   STATE MANAGEMENT + HISTORY
+============================================================ */
+const DEFAULT_STATE = {
+  labelType: 'logo-only',
+  logoSrc: null,
+  logoPos: 'mc',        // tl tc tr ml mc mr bl bc br
+  logoSize: 80,
+  logoOpacity: 100,
+  logoRotation: 0,
+  logoRadius: 0,
+  logoOffsetX: 0,
+  logoOffsetY: 0,
+  logoShadow: false,
+  logoGrayscale: false,
+  logoBgPlate: false,
+  logoBgColor: '#ffffff',
+  width: 4,
+  height: 2.5,
+  bgColor: '#ffffff',
+  textColor: '#111827',
+  accentColor: '#d97706',
+  borderColor: '#000000',
+  fontFamily: "'DM Sans', sans-serif",
+  fontSize: 13,
+  fontWeight: '400',
+  textAlign: 'left',
+  lineHeight: 1.4,
+  letterSpacing: 0,
+  padding: 16,
+  cornerRadius: 0,
+  borderStyle: 'none',
+  borderWidth: 1,
+  bgPattern: false,
+  bgPatternType: 'dots',
+  showQR: false,
+  qrUrl: '',
+  qrSize: 64,
+  qrPosition: 'bottom-right',
+  showBarcode: false,
+  barcodeValue: '',
+  barcodeFormat: 'CODE128',
+  fields: {},
+  zoom: 1,
+};
+
+let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+let history = [];
+let historyIdx = -1;
+let batchData = [];
+let selectedCSVTemplate = null;
+let updateTimer = null;
+
+function pushHistory() {
+  const snap = JSON.stringify({ ...state, logoSrc: null });
+  if (historyIdx >= 0 && history[historyIdx] === snap) return;
+  history = history.slice(0, historyIdx + 1);
+  history.push(snap);
+  if (history.length > 50) history.shift();
+  historyIdx = history.length - 1;
+}
+
+function undoAction() {
+  if (historyIdx <= 0) { showToast('Nothing to undo', 'warn'); return; }
+  historyIdx--;
+  const logo = state.logoSrc;
+  state = { ...JSON.parse(history[historyIdx]), logoSrc: logo };
+  syncUIFromState();
+  updatePreview();
+  flash('↩ Undo');
+}
+
+function redoAction() {
+  if (historyIdx >= history.length - 1) { showToast('Nothing to redo', 'warn'); return; }
+  historyIdx++;
+  const logo = state.logoSrc;
+  state = { ...JSON.parse(history[historyIdx]), logoSrc: logo };
+  syncUIFromState();
+  updatePreview();
+  flash('↪ Redo');
+}
+
+function flash(msg) {
+  const el = document.getElementById('undo-indicator');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+/* ============================================================
+   TEMPLATES DEFINITION
+============================================================ */
+const TEMPLATES = [
+  { id:'logo-only',       name:'Logo Only',          icon:'🏷' },
+  { id:'basic-logo',      name:'Basic Logo',          icon:'📋' },
+  { id:'contact',         name:'Contact Info',        icon:'📞' },
+  { id:'social',          name:'Social Media',        icon:'📱' },
+  { id:'product',         name:'Product Info',        icon:'📦' },
+  { id:'care',            name:'Care Instructions',   icon:'🧺' },
+  { id:'warning',         name:'Warning / Safety',    icon:'⚠️' },
+  { id:'nutritional',     name:'Nutritional',         icon:'🥗' },
+  { id:'pricing',         name:'Pricing',             icon:'💰' },
+  { id:'shipping',        name:'Shipping',            icon:'🚚' },
+  { id:'delivery',        name:'Delivery Info',       icon:'📬' },
+  { id:'return',          name:'Return Info',         icon:'↩️' },
+  { id:'delivery-return', name:'Delivery+Return',     icon:'🔄' },
+  { id:'thankyou',        name:'Thank You',           icon:'🙏' },
+  { id:'event',           name:'Event',               icon:'🎉' },
+  { id:'eco',             name:'Eco-Friendly',        icon:'🌱' },
+];
+
+const FIELDS_DEF = {
+  'logo-only': [],
+  'basic-logo': [
+    { id:'brand-name', label:'Brand Name', type:'text', ph:'Your Brand', required:true },
+    { id:'tagline',    label:'Tagline / Slogan', type:'text', ph:'Quality you can trust' },
+    { id:'website',    label:'Website', type:'text', ph:'www.yourbrand.com' },
+  ],
+  'contact': [
+    { id:'company-name', label:'Company Name', type:'text', ph:'Acme Corporation', required:true },
+    { id:'contact-person', label:'Contact Person', type:'text', ph:'Jane Smith' },
+    { id:'phone',    label:'Phone Number', type:'text', ph:'+1 (555) 000-0000' },
+    { id:'email',    label:'Email Address', type:'text', ph:'hello@acme.com' },
+    { id:'website',  label:'Website', type:'text', ph:'www.acme.com' },
+    { id:'address',  label:'Address', type:'textarea', ph:'123 Main St\nCity, ST 00000' },
+  ],
+  'social': [
+    { id:'brand-name', label:'Brand / Handle Name', type:'text', ph:'YourBrand', required:true },
+    { id:'instagram',  label:'Instagram', type:'text', ph:'@yourbrand' },
+    { id:'twitter',    label:'Twitter / X', type:'text', ph:'@yourbrand' },
+    { id:'facebook',   label:'Facebook', type:'text', ph:'facebook.com/yourbrand' },
+    { id:'tiktok',     label:'TikTok', type:'text', ph:'@yourbrand' },
+    { id:'youtube',    label:'YouTube', type:'text', ph:'@yourbrand' },
+    { id:'linkedin',   label:'LinkedIn', type:'text', ph:'linkedin.com/company/brand' },
+    { id:'cta',        label:'Call to Action', type:'text', ph:'Scan QR to follow us!' },
+  ],
+  'product': [
+    { id:'product-name',  label:'Product Name', type:'text', ph:'Premium Widget Pro', required:true },
+    { id:'variant',       label:'Variant / Size / Flavor', type:'text', ph:'Vanilla · 250ml' },
+    { id:'description',   label:'Short Description', type:'textarea', ph:'A brief description of the product' },
+    { id:'weight',        label:'Net Weight / Volume', type:'text', ph:'250g / 8.8oz' },
+    { id:'sku',           label:'SKU / Item Code', type:'text', ph:'WGT-PRO-250' },
+    { id:'ingredients',   label:'Ingredients / Contents', type:'textarea', ph:'Water, Sugar, Natural Flavors…' },
+    { id:'made-in',       label:'Country of Origin', type:'text', ph:'Made in USA' },
+    { id:'lot',           label:'Lot / Batch Number', type:'text', ph:'LOT 2024-001' },
+    { id:'expiry',        label:'Best Before / Expiry', type:'text', ph:'Best Before: Dec 2025' },
+  ],
+  'care': [
+    { id:'product-name', label:'Product Name', type:'text', ph:'Classic Cotton Tee', required:true },
+    { id:'material',     label:'Material Composition', type:'text', ph:'100% Organic Cotton' },
+    { id:'washing',      label:'Washing Instructions', type:'textarea', ph:'Machine wash cold with like colors\nGentle cycle' },
+    { id:'drying',       label:'Drying', type:'text', ph:'Tumble dry low or hang dry' },
+    { id:'ironing',      label:'Ironing', type:'text', ph:'Iron on low heat — do not iron print' },
+    { id:'bleaching',    label:'Bleaching', type:'text', ph:'Do not bleach' },
+    { id:'dry-clean',    label:'Dry Cleaning', type:'text', ph:'Do not dry clean' },
+    { id:'size',         label:'Size / Fit', type:'text', ph:'M / Regular Fit' },
+  ],
+  'warning': [
+    { id:'product-name',   label:'Product Name', type:'text', ph:'Industrial Cleaner', required:true },
+    { id:'warning-title',  label:'Warning Header', type:'text', ph:'⚠ WARNING' },
+    { id:'warning-text',   label:'Warning Description', type:'textarea', ph:'Keep out of reach of children. Causes skin and eye irritation.' },
+    { id:'first-aid',      label:'First Aid Instructions', type:'textarea', ph:'IF IN EYES: Rinse with water for 15 minutes. Call a poison center.' },
+    { id:'storage',        label:'Storage Instructions', type:'text', ph:'Store at room temperature, away from heat and open flame.' },
+    { id:'disposal',       label:'Disposal Instructions', type:'text', ph:'Dispose of in accordance with local regulations.' },
+    { id:'emergency-tel',  label:'Emergency Contact', type:'text', ph:'1-800-000-0000' },
+  ],
+  'nutritional': [
+    { id:'product-name',   label:'Product Name', type:'text', ph:'Healthy Snack Bar', required:true },
+    { id:'serving-size',   label:'Serving Size', type:'text', ph:'1 bar (40g)' },
+    { id:'servings-per',   label:'Servings per Container', type:'text', ph:'6' },
+    { id:'calories',       label:'Calories', type:'text', ph:'180' },
+    { id:'total-fat',      label:'Total Fat (% DV)', type:'text', ph:'8g · 10%' },
+    { id:'saturated-fat',  label:'Saturated Fat (% DV)', type:'text', ph:'2g · 10%' },
+    { id:'trans-fat',      label:'Trans Fat', type:'text', ph:'0g' },
+    { id:'cholesterol',    label:'Cholesterol (% DV)', type:'text', ph:'5mg · 2%' },
+    { id:'sodium',         label:'Sodium (% DV)', type:'text', ph:'160mg · 7%' },
+    { id:'total-carb',     label:'Total Carbohydrate (% DV)', type:'text', ph:'22g · 8%' },
+    { id:'dietary-fiber',  label:'Dietary Fiber (% DV)', type:'text', ph:'3g · 11%' },
+    { id:'total-sugars',   label:'Total Sugars', type:'text', ph:'8g' },
+    { id:'protein',        label:'Protein', type:'text', ph:'3g' },
+    { id:'allergens',      label:'Allergens / Contains', type:'textarea', ph:'Contains: Milk, Soy, Tree Nuts' },
+  ],
+  'pricing': [
+    { id:'product-name',   label:'Product Name', type:'text', ph:'Premium Widget', required:true },
+    { id:'price',          label:'Sale Price', type:'text', ph:'$24.99', required:true },
+    { id:'original-price', label:'Original Price (for sale)', type:'text', ph:'$34.99' },
+    { id:'discount-pct',   label:'Discount Percentage', type:'text', ph:'SAVE 28%' },
+    { id:'sku',            label:'SKU / Item Number', type:'text', ph:'SKU-001' },
+    { id:'unit',           label:'Unit / Per', type:'text', ph:'per unit' },
+    { id:'valid-until',    label:'Price Valid Until', type:'text', ph:'Valid until Dec 31, 2025' },
+  ],
+  'shipping': [
+    { id:'sender-name',    label:'Sender Name / Company', type:'text', ph:'Your Business LLC', required:true },
+    { id:'sender-address', label:'Sender Address', type:'textarea', ph:'123 Business Ave\nCity, ST 00000' },
+    { id:'sender-phone',   label:'Sender Phone', type:'text', ph:'+1 (555) 000-0000' },
+    { id:'receiver-name',  label:'Recipient Name', type:'text', ph:'Customer Name', required:true },
+    { id:'receiver-address', label:'Recipient Address', type:'textarea', ph:'456 Home St\nCity, ST 00000', required:true },
+    { id:'tracking',       label:'Tracking Number', type:'text', ph:'1Z999AA10123456784' },
+    { id:'shipping-method', label:'Shipping Method / Carrier', type:'text', ph:'USPS Priority Mail 2-Day' },
+    { id:'weight',         label:'Package Weight', type:'text', ph:'2.5 lbs' },
+    { id:'order-number',   label:'Order Number', type:'text', ph:'ORD-12345' },
+  ],
+  'delivery': [
+    { id:'company-name',   label:'Company Name', type:'text', ph:'Your Company', required:true },
+    { id:'order-number',   label:'Order Number', type:'text', ph:'ORD-12345', required:true },
+    { id:'customer-name',  label:'Customer Name', type:'text', ph:'Jane Smith' },
+    { id:'delivery-date',  label:'Estimated Delivery Date', type:'text', ph:'Jan 15, 2025' },
+    { id:'delivery-method', label:'Delivery Method', type:'text', ph:'Standard Shipping (3–5 days)' },
+    { id:'delivery-notes', label:'Delivery Instructions', type:'textarea', ph:'Leave at front door if not home' },
+    { id:'support',        label:'Support Contact', type:'text', ph:'support@company.com' },
+  ],
+  'return': [
+    { id:'company-name',   label:'Company Name', type:'text', ph:'Your Company', required:true },
+    { id:'return-address', label:'Return To Address', type:'textarea', ph:'Returns Dept.\n123 Warehouse Rd\nCity, ST 00000', required:true },
+    { id:'order-number',   label:'Order / RMA Number', type:'text', ph:'RMA-001' },
+    { id:'return-policy',  label:'Return Policy Summary', type:'textarea', ph:'Returns accepted within 30 days of purchase in original condition.' },
+    { id:'return-reason',  label:'Return Reason Codes', type:'text', ph:'A=Wrong Item  B=Damaged  C=Changed Mind' },
+    { id:'support',        label:'Customer Support', type:'text', ph:'1-800-000-0000  ·  support@company.com' },
+  ],
+  'delivery-return': [
+    { id:'company-name',      label:'Company Name', type:'text', ph:'Your Company', required:true },
+    { id:'order-number',      label:'Order Number', type:'text', ph:'ORD-12345' },
+    { id:'customer-name',     label:'Customer Name', type:'text', ph:'Jane Smith' },
+    { id:'delivery-address',  label:'Delivery Address', type:'textarea', ph:'456 Home St\nCity, ST 00000', required:true },
+    { id:'expected-delivery', label:'Expected Delivery', type:'text', ph:'Jan 15–17, 2025' },
+    { id:'return-address',    label:'Return To Address', type:'textarea', ph:'123 Returns Lane\nCity, ST 00000' },
+    { id:'return-by',         label:'Return Deadline', type:'text', ph:'Feb 15, 2025 (30 days)' },
+  ],
+  'thankyou': [
+    { id:'brand-name',      label:'Brand Name', type:'text', ph:'Your Brand', required:true },
+    { id:'customer-name',   label:'Customer Name (optional)', type:'text', ph:'Jane' },
+    { id:'thank-you-msg',   label:'Thank You Message', type:'textarea', ph:'Thank you so much for your order! Your support means the world to us. 🙏' },
+    { id:'discount-code',   label:'Discount Code (for next order)', type:'text', ph:'THANKS15' },
+    { id:'discount-amount', label:'Discount Amount', type:'text', ph:'15% off your next order' },
+    { id:'social-handle',   label:'Social Media Handle', type:'text', ph:'@yourbrand on Instagram' },
+    { id:'website',         label:'Website', type:'text', ph:'www.yourbrand.com' },
+  ],
+  'event': [
+    { id:'event-name',     label:'Event Name', type:'text', ph:'Grand Opening Celebration', required:true },
+    { id:'event-date',     label:'Date', type:'text', ph:'Saturday, January 15, 2025', required:true },
+    { id:'event-time',     label:'Time', type:'text', ph:'6:00 PM – 10:00 PM EST' },
+    { id:'event-location', label:'Venue / Location', type:'textarea', ph:'The Grand Ballroom\n123 Event Ave, City, ST' },
+    { id:'hosted-by',      label:'Hosted By', type:'text', ph:'Acme Corporation' },
+    { id:'dress-code',     label:'Dress Code', type:'text', ph:'Smart Casual' },
+    { id:'rsvp',           label:'RSVP By / Contact', type:'text', ph:'RSVP by Jan 10 · events@acme.com' },
+    { id:'event-details',  label:'Additional Details', type:'textarea', ph:'Complimentary drinks & appetizers. Please bring this invitation.' },
+  ],
+  'eco': [
+    { id:'brand-name',     label:'Brand Name', type:'text', ph:'Eco Brand', required:true },
+    { id:'eco-message',    label:'Main Eco Message', type:'textarea', ph:'100% Organic, Sustainably Sourced & Ethically Made' },
+    { id:'certifications', label:'Certifications', type:'text', ph:'USDA Organic · Fair Trade Certified · B Corp' },
+    { id:'material-info',  label:'Material / Packaging Info', type:'text', ph:'This packaging is 100% compostable' },
+    { id:'recycling',      label:'Recycling Instructions', type:'text', ph:'♻ Please recycle · Remove label before composting' },
+    { id:'carbon',         label:'Carbon / Emissions Statement', type:'text', ph:'Carbon Neutral Shipping · We plant 1 tree per order' },
+    { id:'website',        label:'Learn More', type:'text', ph:'www.ecobrand.com/sustainability' },
+  ],
+};
+
+/* ============================================================
+   CSV HEADERS PER TEMPLATE
+============================================================ */
+const CSV_HEADERS = {};
+Object.keys(FIELDS_DEF).forEach(type => {
+  CSV_HEADERS[type] = FIELDS_DEF[type].map(f => f.id);
+});
+
+const CSV_SAMPLES = {
+  'logo-only':        [[]],
+  'basic-logo':       [['Acme Co.', 'Quality you can trust', 'www.acme.com'], ['Beta Brand', 'Innovation first', 'www.betabrand.io']],
+  'contact':          [['Acme Corp', 'Jane Smith', '+1 555 000 0000', 'jane@acme.com', 'www.acme.com', '123 Main St, City ST 00000']],
+  'social':           [['YourBrand', '@yourbrand', '@yourbrand', 'fb.com/yourbrand', '@yourbrand', '@yourbrand', 'linkedin.com/co/brand', 'Follow us for exclusive deals!']],
+  'product':          [['Premium Widget Pro', 'Blue · Large', 'High-quality precision widget', '250g / 8.8oz', 'WGT-PRO-250-BL', 'Steel, Aluminum, Rubber', 'Made in USA', 'LOT-2024-001', 'Best Before: Dec 2025']],
+  'care':             [['Classic Cotton Tee', '100% Organic Cotton', 'Machine wash cold gentle cycle', 'Tumble dry low', 'Iron low heat', 'Do not bleach', 'Do not dry clean', 'M / Regular Fit']],
+  'warning':          [['Industrial Cleaner X', '⚠ WARNING', 'Causes serious eye and skin irritation. Keep out of reach of children.', 'IF IN EYES: Rinse cautiously with water for 15 min. Call poison center.', 'Store at 15–25°C away from heat.', 'Dispose per local regulations.', '1-800-222-1222']],
+  'nutritional':      [['Healthy Snack Bar', '1 bar (40g)', '6', '180', '8g · 10%', '2g · 10%', '0g', '5mg · 2%', '160mg · 7%', '22g · 8%', '3g · 11%', '8g', '3g', 'Contains: Milk, Soy, Tree Nuts']],
+  'pricing':          [['Premium Widget', '$24.99', '$34.99', 'SAVE 28%', 'SKU-001', 'per unit', 'Valid until Dec 31 2025'], ['Budget Widget', '$9.99', '', '', 'SKU-002', 'each', '']],
+  'shipping':         [['Your Business LLC', '123 Business Ave\nCity ST 00000', '+1 555 000 0000', 'Jane Smith', '456 Home St\nCity ST 00000', '1Z999AA10123456784', 'USPS Priority Mail 2-Day', '2.5 lbs', 'ORD-12345']],
+  'delivery':         [['Your Company', 'ORD-12345', 'Jane Smith', 'Jan 15 2025', 'Standard Shipping (3–5 days)', 'Leave at front door', 'support@company.com'], ['Your Company', 'ORD-12346', 'John Doe', 'Jan 16 2025', 'Express 1-Day', 'Requires signature', 'support@company.com']],
+  'return':           [['Your Company', 'Returns Dept.\n123 Warehouse Rd\nCity ST 00000', 'RMA-001', 'Returns accepted within 30 days in original condition.', 'A=Wrong Item  B=Damaged  C=Changed Mind', '1-800-000-0000 · returns@company.com']],
+  'delivery-return':  [['Your Company', 'ORD-12345', 'Jane Smith', '456 Home St\nCity ST 00000', 'Jan 15–17 2025', '123 Returns Lane\nCity ST 00000', 'Feb 15 2025']],
+  'thankyou':         [['Your Brand', 'Jane', 'Thank you so much for your order! Your support means the world to us. 🙏', 'THANKS15', '15% off your next order', '@yourbrand on Instagram', 'www.yourbrand.com']],
+  'event':            [['Grand Opening Celebration', 'Saturday January 15 2025', '6:00 PM – 10:00 PM', 'The Grand Ballroom\n123 Event Ave City ST', 'Acme Corporation', 'Smart Casual', 'RSVP by Jan 10 · events@acme.com', 'Complimentary drinks & appetizers.']],
+  'eco':              [['Eco Brand', '100% Organic Sustainably Sourced & Ethically Made', 'USDA Organic · Fair Trade · B Corp', 'This packaging is 100% compostable', '♻ Please recycle', 'Carbon Neutral Shipping · We plant 1 tree per order', 'www.ecobrand.com/sustainability']],
+};
+
+/* ============================================================
+   INIT
+============================================================ */
+function init() {
+  buildTemplateGrid();
+  buildBatchLabelTypeSelect();
+  buildCSVTemplateGrid();
+  populateColorSwatches();
+  bindEvents();
+  pushHistory();
+  updatePreview();
+}
+
+function buildTemplateGrid() {
+  const grid = document.getElementById('tmpl-grid');
+  grid.innerHTML = '';
+  TEMPLATES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'tmpl-card' + (t.id === state.labelType ? ' active' : '');
+    el.dataset.type = t.id;
+    el.innerHTML = `<span class="ticon">${t.icon}</span>${t.name}`;
+    el.setAttribute('role', 'radio');
+    el.setAttribute('aria-checked', t.id === state.labelType ? 'true' : 'false');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', t.name + ' label template');
+    el.onclick = () => selectTemplate(t.id);
+    el.onkeydown = e => { if(e.key==='Enter'||e.key===' ') selectTemplate(t.id); };
+    grid.appendChild(el);
+  });
+  buildDynamicFields();
+}
+
+function buildBatchLabelTypeSelect() {
+  const sel = document.getElementById('batch-label-type');
+  TEMPLATES.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.icon + ' ' + t.name;
+    sel.appendChild(opt);
+  });
+}
+
+function buildCSVTemplateGrid() {
+  const grid = document.getElementById('csv-tmpl-select-grid');
+  grid.innerHTML = '';
+  TEMPLATES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'tmpl-select-card';
+    el.innerHTML = `<span class="icon">${t.icon}</span>${t.name}`;
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', t.name + ' CSV template');
+    el.onclick = () => selectCSVTemplate(t.id, el);
+    el.onkeydown = e => { if(e.key==='Enter') selectCSVTemplate(t.id, el); };
+    grid.appendChild(el);
+  });
+}
+
+function buildDynamicFields() {
+  const container = document.getElementById('dynamic-fields');
+  container.innerHTML = '';
+  const defs = FIELDS_DEF[state.labelType] || [];
+  if (!defs.length) {
+    container.innerHTML = `<div style="padding:0 16px 12px;font-size:12px;color:var(--slate);line-height:1.6;">This label type only uses your logo. Upload a logo in the Logo section above to get started.</div>`;
+    return;
+  }
+  defs.forEach(f => {
+    const grp = document.createElement('div');
+    grp.className = 'field-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'field-label';
+    lbl.innerHTML = f.label + (f.required ? ' <span style="color:var(--amber)">*</span>' : '');
+    grp.appendChild(lbl);
+    let input;
+    if (f.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 2;
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+    }
+    input.className = 'f-input';
+    input.placeholder = f.ph;
+    input.value = state.fields[f.id] || '';
+    input.setAttribute('aria-label', f.label);
+    if (f.required) input.setAttribute('aria-required', 'true');
+    input.addEventListener('input', () => {
+      state.fields[f.id] = input.value;
+      scheduleUpdate();
+    });
+    grp.appendChild(input);
+    container.appendChild(grp);
+  });
+}
+
+function selectTemplate(id) {
+  state.labelType = id;
+  // Reset fields for new type
+  state.fields = {};
+  buildTemplateGrid();
+  document.getElementById('active-type-badge').textContent = TEMPLATES.find(t => t.id === id)?.name || '';
+  pushHistory();
+  updatePreview();
+}
+
+/* ============================================================
+   EVENTS
+============================================================ */
+function bindEvents() {
+  // Size inputs
+  document.getElementById('lbl-w').addEventListener('input', e => { state.width = parseFloat(e.target.value)||4; updateSizeDisplay(); pushHistory(); scheduleUpdate(); });
+  document.getElementById('lbl-h').addEventListener('input', e => { state.height = parseFloat(e.target.value)||2.5; updateSizeDisplay(); pushHistory(); scheduleUpdate(); });
+
+  // Size presets
+  document.querySelectorAll('.size-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      state.width = parseFloat(pill.dataset.w);
+      state.height = parseFloat(pill.dataset.h);
+      document.getElementById('lbl-w').value = state.width;
+      document.getElementById('lbl-h').value = state.height;
+      document.querySelectorAll('.size-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      updateSizeDisplay(); pushHistory(); updatePreview();
+    });
+  });
+
+  // Logo sliders
+  bindRangeWithLabel('logo-size-range', 'logo-size-val', v => { state.logoSize = v; return v + 'px'; });
+  bindRangeWithLabel('logo-opacity-range', 'logo-opacity-val', v => { state.logoOpacity = v; return v + '%'; });
+  bindRangeWithLabel('logo-rot-range', 'logo-rot-val', v => { state.logoRotation = v; return v + '°'; });
+  bindRangeWithLabel('logo-radius-range', 'logo-radius-val', v => { state.logoRadius = v; return v; });
+  bindRangeWithLabel('logo-offx-range', 'logo-offx-val', v => { state.logoOffsetX = v; return v; });
+  bindRangeWithLabel('logo-offy-range', 'logo-offy-val', v => { state.logoOffsetY = v; return v; });
+
+  // Logo toggles
+  document.getElementById('logo-bg-toggle').addEventListener('change', e => {
+    state.logoBgPlate = e.target.checked;
+    document.getElementById('logo-bg-color-row').style.display = e.target.checked ? 'block' : 'none';
+    updatePreview();
+  });
+
+  // Logo plate color sync
+  document.getElementById('logo-bg-color').addEventListener('input', e => {
+    document.getElementById('logo-bg-color-text').value = e.target.value;
+    state.logoBgColor = e.target.value;
+    updatePreview();
+  });
+  document.getElementById('logo-bg-color-text').addEventListener('input', e => {
+    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+      document.getElementById('logo-bg-color').value = e.target.value;
+      state.logoBgColor = e.target.value;
+      updatePreview();
+    }
+  });
+
+  // Typography
+  document.getElementById('font-family').addEventListener('change', e => { state.fontFamily = e.target.value; pushHistory(); updatePreview(); });
+  document.getElementById('font-weight').addEventListener('change', e => { state.fontWeight = e.target.value; pushHistory(); updatePreview(); });
+  bindRangeWithLabel('font-size-range', 'font-size-val', v => { state.fontSize = v; return v + 'px'; });
+  bindRangeWithLabel('line-height-range', 'line-height-val', v => { state.lineHeight = (v/10).toFixed(1); return (v/10).toFixed(1); });
+  bindRangeWithLabel('letter-spacing-range', 'letter-spacing-val', v => { state.letterSpacing = parseFloat(v); return v; });
+
+  // Colors
+  ['bg','text','accent'].forEach(key => {
+    document.getElementById('color-'+key).addEventListener('input', e => syncColor(key, e.target.value));
+    document.getElementById('color-'+key+'-text').addEventListener('input', e => syncColorFromText(key, e.target.value));
+  });
+  document.getElementById('color-border').addEventListener('input', e => { state.borderColor = e.target.value; document.getElementById('color-border-text').value = e.target.value; updatePreview(); });
+  document.getElementById('color-border-text').addEventListener('input', e => { if(/^#[0-9a-fA-F]{6}$/.test(e.target.value)) { state.borderColor = e.target.value; document.getElementById('color-border').value = e.target.value; updatePreview(); } });
+
+  // QR
+  document.getElementById('qr-url').addEventListener('input', e => { state.qrUrl = e.target.value; scheduleUpdate(); });
+  document.getElementById('qr-position').addEventListener('change', e => { state.qrPosition = e.target.value; updatePreview(); });
+  bindRangeWithLabel('qr-size-range', 'qr-size-val', v => { state.qrSize = v; return v + 'px'; });
+
+  // Barcode
+  document.getElementById('barcode-value').addEventListener('input', e => { state.barcodeValue = e.target.value; scheduleUpdate(); });
+  document.getElementById('barcode-format').addEventListener('change', e => { state.barcodeFormat = e.target.value; updatePreview(); });
+
+  // Advanced
+  bindRangeWithLabel('padding-range', 'padding-val', v => { state.padding = v; return v + 'px'; });
+  bindRangeWithLabel('corner-radius-range', 'radius-val', v => { state.cornerRadius = v; return v + 'px'; });
+  bindRangeWithLabel('border-width-range', 'border-w-val', v => { state.borderWidth = v; return v + 'px'; });
+  document.getElementById('border-style').addEventListener('change', e => { state.borderStyle = e.target.value; updatePreview(); });
+
+  // Background pattern
+  document.getElementById('bg-pattern-toggle').addEventListener('change', e => {
+    state.bgPattern = e.target.checked;
+    document.getElementById('bg-pattern-row').style.display = e.target.checked ? 'block' : 'none';
+    updatePreview();
+  });
+  document.getElementById('bg-pattern').addEventListener('change', e => { state.bgPatternType = e.target.value; updatePreview(); });
+
+  // Logo file input
+  document.getElementById('logo-file-input').addEventListener('change', e => handleLogoFile(e.target.files[0]));
+
+  // Barcode CSV input
+  document.getElementById('batch-csv-input').addEventListener('change', e => handleBatchCSV(e.target));
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', handleKeyboard);
+
+  updateSizeDisplay();
+}
+
+function bindRangeWithLabel(rangeId, labelId, updateFn) {
+  const range = document.getElementById(rangeId);
+  const label = document.getElementById(labelId);
+  range.addEventListener('input', () => {
+    const display = updateFn(parseFloat(range.value));
+    if (label) label.textContent = display;
+    scheduleUpdate();
+  });
+}
+
+function scheduleUpdate() {
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(updatePreview, 80);
+}
+
+function handleKeyboard(e) {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z') { e.preventDefault(); undoAction(); }
+    if (e.key === 'y') { e.preventDefault(); redoAction(); }
+    if (e.key === 's') { e.preventDefault(); saveDesign(); }
+    if (e.key === 'p') { e.preventDefault(); handlePrint(); }
+  }
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); adjustZoom(0.1); }
+  if (e.key === '-') { e.preventDefault(); adjustZoom(-0.1); }
+  if (e.key === '0') { e.preventDefault(); resetZoom(); }
+}
+
+/* ============================================================
+   LOGO HANDLING
+============================================================ */
+function logoDragOver(e) { e.preventDefault(); document.getElementById('logo-drop-zone').classList.add('drag-over'); }
+function logoDragLeave() { document.getElementById('logo-drop-zone').classList.remove('drag-over'); }
+function logoDrop(e) { e.preventDefault(); logoDragLeave(); handleLogoFile(e.dataTransfer.files[0]); }
+
+function handleLogoFile(file) {
+  if (!file) return;
+  if (!file.type.match(/image\/(png|jpeg|svg\+xml|webp)/)) {
+    showToast('Unsupported format. Use PNG, JPG, SVG, or WebP.', 'error');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('File too large. Maximum 5MB.', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.logoSrc = e.target.result;
+    document.getElementById('logo-dz-content').innerHTML = `
+      <img src="${state.logoSrc}" alt="Logo preview" style="max-height:56px;max-width:100%;object-fit:contain;border-radius:6px;margin-bottom:4px;">
+      <div style="font-size:11px;color:var(--slate);">✓ ${file.name}</div>`;
+    document.getElementById('logo-controls').style.display = 'block';
+    updatePreview();
+    showToast('Logo uploaded successfully', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  state.logoSrc = null;
+  document.getElementById('logo-dz-content').innerHTML = `
+    <div style="font-size:32px;">🖼</div>
+    <div style="font-size:13px;font-weight:600;margin-top:6px;color:var(--ink);">Drop logo here</div>
+    <div style="font-size:11px;color:var(--slate);margin-top:2px;">or click to browse — PNG · JPG · SVG</div>`;
+  document.getElementById('logo-controls').style.display = 'none';
+  document.getElementById('logo-file-input').value = '';
+  pushHistory();
+  updatePreview();
+  showToast('Logo removed', 'success');
+}
+
+function setLogoPos(pos, el) {
+  state.logoPos = pos;
+  document.querySelectorAll('.lag-cell').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  updatePreview();
+}
+
+/* ============================================================
+   COLOR SYNC
+============================================================ */
+const COLOR_SWATCHES = {
+  bg: ['#ffffff','#000000','#f8f7f5','#fef3c7','#dbeafe','#d1fae5','#fce7f3','#f3e8ff','#1a1a2e','#0f172a'],
+  text: ['#111827','#ffffff','#6b7280','#374151','#d97706','#2563eb','#059669','#dc2626','#7c3aed','#c8a96e'],
+  accent: ['#d97706','#2563eb','#059669','#dc2626','#7c3aed','#0891b2','#db2777','#16a34a','#c8a96e','#38bdf8'],
+};
+
+function populateColorSwatches() {
+  ['bg','text','accent'].forEach(key => {
+    const container = document.getElementById(key+'-swatches');
+    COLOR_SWATCHES[key].forEach(hex => {
+      const el = document.createElement('div');
+      el.className = 'cswatch';
+      el.style.background = hex;
+      el.title = hex;
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', 'Color ' + hex);
+      el.onclick = () => syncColor(key, hex);
+      el.onkeydown = e => { if(e.key==='Enter') syncColor(key, hex); };
+      container.appendChild(el);
+    });
+  });
+}
+
+function syncColor(key, hex) {
+  const map = { bg: 'bgColor', text: 'textColor', accent: 'accentColor' };
+  state[map[key]] = hex;
+  document.getElementById('color-'+key).value = hex;
+  document.getElementById('color-'+key+'-text').value = hex;
+  updatePreview();
+}
+
+function syncColorFromText(key, val) {
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) syncColor(key, val);
+}
+
+/* ============================================================
+   PRESETS
+============================================================ */
+const THEME_PRESETS = {
+  minimal:  { bg:'#ffffff', text:'#111827', accent:'#111827' },
+  modern:   { bg:'#0f172a', text:'#f1f5f9', accent:'#38bdf8' },
+  bold:     { bg:'#dc2626', text:'#ffffff', accent:'#fef08a' },
+  elegant:  { bg:'#1a1a2e', text:'#e8e0d0', accent:'#c8a96e' },
+  eco:      { bg:'#f0fdf4', text:'#14532d', accent:'#16a34a' },
+  pastel:   { bg:'#fdf2f8', text:'#4a044e', accent:'#a21caf' },
+};
+
+function applyPreset(name) {
+  const p = THEME_PRESETS[name];
+  if (!p) return;
+  syncColor('bg', p.bg);
+  syncColor('text', p.text);
+  syncColor('accent', p.accent);
+  pushHistory();
+  showToast(name.charAt(0).toUpperCase() + name.slice(1) + ' theme applied', 'success');
+}
+
+function resetColors() {
+  applyPreset('minimal');
+  showToast('Colors reset to default', 'info');
+}
+
+/* ============================================================
+   TEXT ALIGN
+============================================================ */
+function setTextAlign(align, el) {
+  state.textAlign = align;
+  document.querySelectorAll('.text-align-btn').forEach(b => {
+    b.classList.remove('btn-amber');
+    b.classList.add('btn-outline');
+    b.setAttribute('aria-pressed','false');
+  });
+  if (el) {
+    el.classList.add('btn-amber');
+    el.classList.remove('btn-outline');
+    el.setAttribute('aria-pressed','true');
+  }
+  updatePreview();
+}
+
+/* ============================================================
+   SIZE DISPLAY
+============================================================ */
+const DPI = 96;
+function updateSizeDisplay() {
+  const wpx = Math.round(state.width * DPI);
+  const hpx = Math.round(state.height * DPI);
+  document.getElementById('size-display-header').textContent = `${state.width}" × ${state.height}" · ${wpx}×${hpx}px`;
+}
+
+/* ============================================================
+   ZOOM
+============================================================ */
+function adjustZoom(delta) {
+  state.zoom = Math.min(4, Math.max(0.2, state.zoom + delta));
+  applyZoom();
+}
+function resetZoom() { state.zoom = 1; applyZoom(); }
+function fitToView() {
+  const area = document.getElementById('preview-area');
+  const wpx = Math.round(state.width * DPI);
+  const hpx = Math.round(state.height * DPI);
+  const scaleW = (area.clientWidth - 80) / wpx;
+  const scaleH = (area.clientHeight - 80) / hpx;
+  state.zoom = Math.min(scaleW, scaleH, 3);
+  applyZoom();
+}
+function applyZoom() {
+  const canvas = document.getElementById('label-canvas');
+  canvas.style.transform = `scale(${state.zoom})`;
+  canvas.style.transformOrigin = 'center center';
+  document.getElementById('zoom-label').textContent = Math.round(state.zoom * 100) + '%';
+}
+
+/* ============================================================
+   LOGO BUILDER (returns HTML string for inline use)
+============================================================ */
+function buildLogoHTML() {
+  if (!state.logoSrc) return '';
+  const posMap = {
+    tl:'flex-start', tc:'center', tr:'flex-end',
+    ml:'flex-start', mc:'center', mr:'flex-end',
+    bl:'flex-start', bc:'center', br:'flex-end',
+  };
+  const align = posMap[state.logoPos] || 'center';
+  const offX = state.logoOffsetX || 0;
+  const offY = state.logoOffsetY || 0;
+
+  let imgStyle = `height:${state.logoSize}px;max-width:100%;object-fit:contain;`;
+  imgStyle += `opacity:${(state.logoOpacity||100)/100};`;
+  imgStyle += `border-radius:${state.logoRadius||0}%;`;
+  imgStyle += `transform:rotate(${state.logoRotation||0}deg) translate(${offX}px,${offY}px);`;
+  if (state.logoShadow) imgStyle += `filter:drop-shadow(0 3px 8px rgba(0,0,0,0.25));`;
+  if (state.logoGrayscale) imgStyle += `filter:${state.logoShadow?'drop-shadow(0 3px 8px rgba(0,0,0,0.25)) ':''}grayscale(100%);`;
+
+  let wrapStyle = `display:flex;justify-content:${align};margin-bottom:8px;`;
+  if (state.logoBgPlate) {
+    wrapStyle += `background:${state.logoBgColor};border-radius:8px;padding:8px;`;
+  }
+
+  return `<div style="${wrapStyle}"><img src="${state.logoSrc}" alt="Logo" style="${imgStyle}"></div>`;
+}
+
+/* ============================================================
+   PREVIEW RENDERER
+============================================================ */
+function updatePreview() {
+  const canvas = document.getElementById('label-canvas');
+  const inner = document.getElementById('label-inner');
+
+  const wpx = Math.round(state.width * DPI);
+  const hpx = Math.round(state.height * DPI);
+
+  canvas.style.width = wpx + 'px';
+  canvas.style.height = hpx + 'px';
+  canvas.style.borderRadius = state.cornerRadius + 'px';
+
+  if (state.borderStyle && state.borderStyle !== 'none') {
+    canvas.style.border = `${state.borderWidth}px ${state.borderStyle} ${state.borderColor}`;
+  } else {
+    canvas.style.border = '2px dashed #d1cbc3';
+  }
+
+  // Build background
+  let bgStyle = `background:${state.bgColor};`;
+  if (state.bgPattern) {
+    const patterns = {
+      dots: `radial-gradient(circle, ${state.accentColor}22 1px, transparent 1px)`,
+      lines: `repeating-linear-gradient(0deg, ${state.accentColor}15, ${state.accentColor}15 1px, transparent 1px, transparent 10px)`,
+      grid: `linear-gradient(${state.accentColor}15 1px, transparent 1px), linear-gradient(90deg, ${state.accentColor}15 1px, transparent 1px)`,
+      diagonal: `repeating-linear-gradient(45deg, ${state.accentColor}10, ${state.accentColor}10 1px, transparent 1px, transparent 12px)`,
+    };
+    bgStyle += `background-image:${patterns[state.bgPatternType]||patterns.dots};background-size:10px 10px;`;
+  }
+
+  inner.style.cssText = `
+    width:100%;height:100%;position:relative;overflow:hidden;
+    ${bgStyle}
+    color:${state.textColor};
+    font-family:${state.fontFamily};
+    font-size:${state.fontSize}px;
+    font-weight:${state.fontWeight};
+    text-align:${state.textAlign};
+    line-height:${state.lineHeight};
+    letter-spacing:${state.letterSpacing}px;
+    padding:${state.padding}px;
+    box-sizing:border-box;
+  `;
+
+  inner.innerHTML = renderContent(state.labelType, state);
+  renderQRCode();
+  renderBarcode();
+}
+
+/* ============================================================
+   CONTENT RENDERER — returns HTML for a given type + data
+============================================================ */
+function v(id, fields) { return ((fields||state.fields)[id]||'').trim(); }
+
+function accentHeader(text, s) {
+  return `<div style="font-weight:700;font-size:${s.fontSize+3}px;color:${s.accentColor};line-height:1.2;margin-bottom:4px;">${text}</div>`;
+}
+function hr(s) { return `<div style="border-top:1.5px solid ${s.accentColor};margin:6px 0;opacity:0.4;"></div>`; }
+function row(icon, text, s) { return text ? `<div style="font-size:${s.fontSize-1}px;margin:2px 0;">${icon} ${text}</div>` : ''; }
+
+function renderContent(type, s, fields) {
+  const f = fields || s.fields;
+  const logo = s.logoSrc ? buildLogoHTML() : '';
+
+  // Decide if QR/barcode go inline or absolutely positioned
+  const qrInline = s.showQR && s.qrPosition === 'inline';
+  const qrAbs = s.showQR && s.qrPosition !== 'inline';
+  const qrInlineHtml = qrInline ? `<div id="qr-container" style="display:inline-block;vertical-align:middle;margin-top:6px;"></div>` : '';
+  const barcodeHtml = s.showBarcode && s.barcodeValue ? `<div style="text-align:${s.textAlign};margin-top:6px;"><svg id="barcode-svg" style="max-width:100%;"></svg></div>` : '';
+
+  let c = '';
+  switch(type) {
+    case 'logo-only':
+      c = logo || `<div style="text-align:center;opacity:0.3;padding:20px;font-size:12px;">Upload a logo to preview</div>`;
+      break;
+
+    case 'basic-logo':
+      c = `${logo}
+      ${v('brand-name',f)?accentHeader(v('brand-name',f),s):''}
+      ${v('tagline',f)?`<div style="font-size:${s.fontSize-1}px;opacity:0.7;font-style:italic;">${v('tagline',f)}</div>`:''}
+      ${v('website',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;color:${s.accentColor};">🌐 ${v('website',f)}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'contact':
+      c = `${logo}
+      ${v('company-name',f)?accentHeader(v('company-name',f),s):''}
+      ${v('contact-person',f)?`<div style="font-size:${s.fontSize-1}px;font-weight:600;margin-bottom:4px;">${v('contact-person',f)}</div>`:''}
+      ${hr(s)}
+      ${row('📞',v('phone',f),s)}
+      ${row('✉',v('email',f),s)}
+      ${row('🌐',v('website',f),s)}
+      ${v('address',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;opacity:0.8;">📍 ${v('address',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'social':
+      c = `${logo}
+      ${v('brand-name',f)?accentHeader(v('brand-name',f),s):''}
+      ${hr(s)}
+      ${row('📸 Instagram:',v('instagram',f),s)}
+      ${row('𝕏 Twitter:',v('twitter',f),s)}
+      ${row('👤 Facebook:',v('facebook',f),s)}
+      ${row('🎵 TikTok:',v('tiktok',f),s)}
+      ${row('▶ YouTube:',v('youtube',f),s)}
+      ${row('💼 LinkedIn:',v('linkedin',f),s)}
+      ${v('cta',f)?`<div style="font-size:${s.fontSize-1}px;margin-top:6px;font-weight:600;color:${s.accentColor};">${v('cta',f)}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'product':
+      c = `${logo}
+      ${v('product-name',f)?accentHeader(v('product-name',f),s):''}
+      ${v('variant',f)?`<div style="font-size:${s.fontSize-1}px;opacity:0.7;margin-bottom:2px;">${v('variant',f)}</div>`:''}
+      ${v('description',f)?`<div style="font-size:${s.fontSize-1}px;opacity:0.8;margin:4px 0;">${v('description',f)}</div>`:''}
+      ${hr(s)}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:${s.fontSize-2}px;">
+        ${v('weight',f)?`<span>⚖ ${v('weight',f)}</span>`:''}
+        ${v('made-in',f)?`<span>🏭 ${v('made-in',f)}</span>`:''}
+        ${v('lot',f)?`<span>📦 ${v('lot',f)}</span>`:''}
+      </div>
+      ${v('expiry',f)?`<div style="font-size:${s.fontSize-2}px;color:${s.accentColor};font-weight:600;margin-top:2px;">📅 ${v('expiry',f)}</div>`:''}
+      ${v('sku',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.5;margin-top:2px;">SKU: ${v('sku',f)}</div>`:''}
+      ${v('ingredients',f)?`<div style="font-size:${s.fontSize-3}px;margin-top:4px;opacity:0.7;border-top:1px solid ${s.textColor};padding-top:3px;">Ingredients: ${v('ingredients',f)}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'care':
+      c = `${logo}
+      ${v('product-name',f)?accentHeader(v('product-name',f),s):''}
+      ${v('size',f)?`<div style="font-size:${s.fontSize-1}px;font-weight:600;">${v('size',f)}</div>`:''}
+      ${v('material',f)?`<div style="font-size:${s.fontSize-1}px;opacity:0.7;">${v('material',f)}</div>`:''}
+      ${hr(s)}
+      ${v('washing',f)?`<div style="font-size:${s.fontSize-1}px;">🧺 ${v('washing',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${v('drying',f)?`<div style="font-size:${s.fontSize-1}px;margin-top:2px;">💨 ${v('drying',f)}</div>`:''}
+      ${v('ironing',f)?`<div style="font-size:${s.fontSize-1}px;margin-top:2px;">🔥 ${v('ironing',f)}</div>`:''}
+      ${v('bleaching',f)?`<div style="font-size:${s.fontSize-1}px;margin-top:2px;">🚫 ${v('bleaching',f)}</div>`:''}
+      ${v('dry-clean',f)?`<div style="font-size:${s.fontSize-1}px;margin-top:2px;">👔 ${v('dry-clean',f)}</div>`:''}
+      ${barcodeHtml}`;
+      break;
+
+    case 'warning':
+      c = `${logo}
+      <div style="background:${s.accentColor};color:#fff;padding:5px 8px;border-radius:5px;font-weight:700;font-size:${s.fontSize+2}px;margin-bottom:6px;">
+        ${v('warning-title',f)||'⚠ WARNING'}
+      </div>
+      ${v('product-name',f)?`<div style="font-weight:600;font-size:${s.fontSize}px;">${v('product-name',f)}</div>`:''}
+      ${v('warning-text',f)?`<div style="font-size:${s.fontSize-1}px;margin-top:4px;">${v('warning-text',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${hr(s)}
+      ${v('first-aid',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.9;">🏥 ${v('first-aid',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${v('storage',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:3px;">📦 ${v('storage',f)}</div>`:''}
+      ${v('disposal',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:3px;">🗑 ${v('disposal',f)}</div>`:''}
+      ${v('emergency-tel',f)?`<div style="font-size:${s.fontSize-2}px;font-weight:600;color:${s.accentColor};">📞 ${v('emergency-tel',f)}</div>`:''}
+      ${barcodeHtml}`;
+      break;
+
+    case 'nutritional': {
+      const nutRow = (label, val) => val ? `<tr><td style="padding:2px 0;">${label}</td><td style="text-align:right;font-weight:700;">${val}</td></tr>` : '';
+      c = `${logo}
+      <div style="border:2px solid ${s.textColor};padding:5px;font-size:${s.fontSize-1}px;">
+        <div style="font-family:Impact,sans-serif;font-size:${s.fontSize+6}px;line-height:1;">Nutrition Facts</div>
+        ${v('servings-per',f)?`<div style="font-size:${s.fontSize-2}px;">${v('servings-per',f)} servings per container</div>`:''}
+        ${v('serving-size',f)?`<div style="display:flex;justify-content:space-between;font-weight:700;border-bottom:4px solid ${s.textColor};padding-bottom:2px;">Serving size<span>${v('serving-size',f)}</span></div>`:''}
+        ${v('calories',f)?`<div style="display:flex;justify-content:space-between;font-weight:900;font-size:${s.fontSize+3}px;border-bottom:4px solid ${s.textColor};padding:2px 0;">Calories<span>${v('calories',f)}</span></div>`:''}
+        <table style="width:100%;border-collapse:collapse;font-size:${s.fontSize-2}px;">
+          ${nutRow('Total Fat',v('total-fat',f))}
+          ${nutRow('Sat. Fat',v('saturated-fat',f))}
+          ${nutRow('Trans Fat',v('trans-fat',f))}
+          ${nutRow('Cholesterol',v('cholesterol',f))}
+          ${nutRow('Sodium',v('sodium',f))}
+          ${nutRow('Total Carb.',v('total-carb',f))}
+          ${nutRow('Dietary Fiber',v('dietary-fiber',f))}
+          ${nutRow('Total Sugars',v('total-sugars',f))}
+          ${nutRow('Protein',v('protein',f))}
+        </table>
+        ${v('allergens',f)?`<div style="border-top:4px solid ${s.textColor};padding-top:3px;font-weight:700;font-size:${s.fontSize-2}px;">${v('allergens',f)}</div>`:''}
+      </div>${barcodeHtml}`;
+      break;
+    }
+
+    case 'pricing':
+      c = `${logo}
+      ${v('product-name',f)?`<div style="font-weight:600;font-size:${s.fontSize+1}px;">${v('product-name',f)}</div>`:''}
+      <div style="margin:8px 0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+        ${v('original-price',f)?`<span style="text-decoration:line-through;opacity:0.5;font-size:${s.fontSize}px;">${v('original-price',f)}</span>`:''}
+        ${v('price',f)?`<span style="font-size:${s.fontSize+12}px;font-weight:700;color:${s.accentColor};line-height:1;">${v('price',f)}</span>`:''}
+        ${v('unit',f)?`<span style="font-size:${s.fontSize-2}px;opacity:0.6;">${v('unit',f)}</span>`:''}
+      </div>
+      ${v('discount-pct',f)?`<div style="display:inline-block;background:${s.accentColor};color:#fff;padding:2px 8px;border-radius:4px;font-size:${s.fontSize-2}px;font-weight:700;">${v('discount-pct',f)}</div>`:''}
+      ${v('sku',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.5;margin-top:4px;">Item: ${v('sku',f)}</div>`:''}
+      ${v('valid-until',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.6;margin-top:2px;">📅 ${v('valid-until',f)}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'shipping':
+      c = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <div style="font-size:${s.fontSize-3}px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.5;font-weight:700;">FROM</div>
+          <div style="font-weight:600;font-size:${s.fontSize}px;">${v('sender-name',f)}</div>
+          <div style="font-size:${s.fontSize-2}px;opacity:0.7;">${v('sender-address',f).replace(/\n/g,'<br>')}</div>
+          ${v('sender-phone',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.6;">${v('sender-phone',f)}</div>`:''}
+        </div>
+        ${s.logoSrc?`<div style="flex-shrink:0;">${buildLogoHTML()}</div>`:''}
+      </div>
+      ${hr(s)}
+      <div>
+        <div style="font-size:${s.fontSize-3}px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.5;font-weight:700;">SHIP TO</div>
+        <div style="font-weight:700;font-size:${s.fontSize+4}px;color:${s.accentColor};line-height:1.2;">${v('receiver-name',f)}</div>
+        <div style="font-size:${s.fontSize}px;">${v('receiver-address',f).replace(/\n/g,'<br>')}</div>
+      </div>
+      ${hr(s)}
+      <div style="display:flex;justify-content:space-between;font-size:${s.fontSize-2}px;flex-wrap:wrap;gap:4px;">
+        ${v('shipping-method',f)?`<div style="font-weight:600;">📦 ${v('shipping-method',f)}</div>`:''}
+        ${v('weight',f)?`<div>⚖ ${v('weight',f)}</div>`:''}
+        ${v('order-number',f)?`<div>Order: ${v('order-number',f)}</div>`:''}
+      </div>
+      ${v('tracking',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.5;margin-top:2px;">TRK: ${v('tracking',f)}</div>`:''}
+      ${barcodeHtml}${qrInlineHtml}`;
+      break;
+
+    case 'delivery':
+      c = `${logo}
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+        ${v('company-name',f)?accentHeader(v('company-name',f),s):''}
+        ${v('order-number',f)?`<div class="badge badge-amber" style="background:${s.accentColor}22;color:${s.accentColor};padding:2px 8px;border-radius:20px;font-size:${s.fontSize-2}px;font-weight:700;">Order: ${v('order-number',f)}</div>`:''}
+      </div>
+      ${hr(s)}
+      ${v('customer-name',f)?`<div style="font-weight:700;font-size:${s.fontSize+2}px;">👋 Hi, ${v('customer-name',f)}!</div>`:''}
+      ${v('delivery-date',f)?row('📅 Est. Delivery:',v('delivery-date',f),s):''}
+      ${v('delivery-method',f)?row('🚚',v('delivery-method',f),s):''}
+      ${v('delivery-notes',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;background:${s.accentColor}18;border-left:3px solid ${s.accentColor};padding:4px 6px;border-radius:0 4px 4px 0;">${v('delivery-notes',f)}</div>`:''}
+      ${v('support',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.6;margin-top:4px;">Help: ${v('support',f)}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'return':
+      c = `${logo}
+      ${v('company-name',f)?accentHeader(v('company-name',f),s):''}
+      <div style="font-weight:700;font-size:${s.fontSize+2}px;margin:4px 0;">↩ RETURN LABEL</div>
+      ${v('order-number',f)?`<div style="font-size:${s.fontSize-1}px;font-weight:600;">RMA/Order: ${v('order-number',f)}</div>`:''}
+      ${hr(s)}
+      ${v('return-address',f)?`<div style="font-size:${s.fontSize-1}px;"><span style="font-weight:700;">Return To:</span><br>${v('return-address',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${v('return-policy',f)?`<div style="font-size:${s.fontSize-3}px;margin-top:4px;opacity:0.7;">${v('return-policy',f)}</div>`:''}
+      ${v('return-reason',f)?`<div style="font-size:${s.fontSize-3}px;margin-top:3px;opacity:0.6;">Reasons: ${v('return-reason',f)}</div>`:''}
+      ${v('support',f)?row('📞',v('support',f),s):''}
+      ${barcodeHtml}${qrInlineHtml}`;
+      break;
+
+    case 'delivery-return':
+      c = `${logo && s.logoPos !== 'mc' ? logo : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:100%;font-size:${s.fontSize-1}px;">
+        <div style="padding-right:8px;border-right:1.5px dashed ${s.accentColor};">
+          <div style="font-weight:800;font-size:${s.fontSize-1}px;text-transform:uppercase;letter-spacing:0.05em;color:${s.accentColor};margin-bottom:4px;">📬 Delivery</div>
+          ${v('company-name',f)?`<div style="font-weight:700;">${v('company-name',f)}</div>`:''}
+          ${v('order-number',f)?`<div style="opacity:0.7;">Order: ${v('order-number',f)}</div>`:''}
+          ${v('customer-name',f)?`<div style="font-weight:600;">${v('customer-name',f)}</div>`:''}
+          ${v('delivery-address',f)?`<div style="opacity:0.8;">${v('delivery-address',f).replace(/\n/g,'<br>')}</div>`:''}
+          ${v('expected-delivery',f)?`<div style="font-size:${s.fontSize-2}px;color:${s.accentColor};font-weight:600;margin-top:2px;">📅 ${v('expected-delivery',f)}</div>`:''}
+        </div>
+        <div>
+          <div style="font-weight:800;font-size:${s.fontSize-1}px;text-transform:uppercase;letter-spacing:0.05em;color:${s.accentColor};margin-bottom:4px;">↩ Return</div>
+          ${v('return-address',f)?`<div style="opacity:0.8;">${v('return-address',f).replace(/\n/g,'<br>')}</div>`:''}
+          ${v('return-by',f)?`<div style="font-size:${s.fontSize-2}px;font-weight:600;color:${s.accentColor};margin-top:2px;">Return by: ${v('return-by',f)}</div>`:''}
+          ${logo && s.logoPos === 'mc' ? logo : ''}
+        </div>
+      </div>${barcodeHtml}`;
+      break;
+
+    case 'thankyou':
+      c = `${logo}
+      <div style="text-align:center;">
+        <div style="font-size:${s.fontSize+8}px;margin:4px 0;">🙏</div>
+        <div style="font-weight:700;font-size:${s.fontSize+4}px;color:${s.accentColor};">${v('brand-name',f)||'Thank You!'}</div>
+        ${v('customer-name',f)?`<div style="font-size:${s.fontSize}px;">Dear ${v('customer-name',f)},</div>`:''}
+        ${v('thank-you-msg',f)?`<div style="font-style:italic;font-size:${s.fontSize-1}px;margin:6px 0;opacity:0.85;">${v('thank-you-msg',f)}</div>`:''}
+        ${hr(s)}
+        ${v('discount-code',f)?`<div style="background:${s.accentColor};color:#fff;padding:5px 12px;border-radius:6px;display:inline-block;font-weight:700;font-size:${s.fontSize+1}px;letter-spacing:0.08em;">${v('discount-code',f)}</div>`:''}
+        ${v('discount-amount',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;opacity:0.8;">${v('discount-amount',f)}</div>`:''}
+        ${v('social-handle',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;color:${s.accentColor};">${v('social-handle',f)}</div>`:''}
+        ${v('website',f)?`<div style="font-size:${s.fontSize-2}px;opacity:0.6;">${v('website',f)}</div>`:''}
+      </div>${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'event':
+      c = `${logo}
+      ${v('event-name',f)?`<div style="font-weight:700;font-size:${s.fontSize+5}px;color:${s.accentColor};line-height:1.1;margin-bottom:4px;">${v('event-name',f)}</div>`:''}
+      ${v('hosted-by',f)?`<div style="font-size:${s.fontSize-1}px;opacity:0.7;margin-bottom:4px;">Hosted by ${v('hosted-by',f)}</div>`:''}
+      ${hr(s)}
+      ${v('event-date',f)?row('📅',v('event-date',f),s):''}
+      ${v('event-time',f)?row('🕐',v('event-time',f),s):''}
+      ${v('event-location',f)?`<div style="font-size:${s.fontSize-1}px;margin:2px 0;">📍 ${v('event-location',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${v('dress-code',f)?row('👔 Dress Code:',v('dress-code',f),s):''}
+      ${v('rsvp',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;background:${s.accentColor};color:#fff;padding:3px 8px;border-radius:4px;display:inline-block;">${v('rsvp',f)}</div>`:''}
+      ${v('event-details',f)?`<div style="font-size:${s.fontSize-2}px;margin-top:4px;opacity:0.7;">${v('event-details',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    case 'eco':
+      c = `${logo}
+      ${v('brand-name',f)?`<div style="font-weight:700;font-size:${s.fontSize+3}px;color:${s.accentColor};">${v('brand-name',f)}</div>`:''}
+      <div style="font-size:${s.fontSize+2}px;margin:4px 0;">🌱</div>
+      ${v('eco-message',f)?`<div style="font-style:italic;font-size:${s.fontSize-1}px;margin-bottom:4px;">${v('eco-message',f).replace(/\n/g,'<br>')}</div>`:''}
+      ${hr(s)}
+      ${v('certifications',f)?`<div style="font-size:${s.fontSize-2}px;font-weight:700;color:${s.accentColor};">${v('certifications',f)}</div>`:''}
+      ${v('material-info',f)?row('📦',v('material-info',f),s):''}
+      ${v('recycling',f)?row('♻',v('recycling',f),s):''}
+      ${v('carbon',f)?row('🌍',v('carbon',f),s):''}
+      ${v('website',f)?row('🌐',v('website',f),s):''}
+      ${qrInlineHtml}${barcodeHtml}`;
+      break;
+
+    default:
+      c = logo || '<div style="padding:20px;text-align:center;opacity:0.3;">Select a label type</div>';
+  }
+
+  // Absolute QR overlay
+  if (qrAbs) {
+    const posStyles = {
+      'bottom-right': 'bottom:8px;right:8px;',
+      'bottom-left': 'bottom:8px;left:8px;',
+      'top-right': 'top:8px;right:8px;',
+      'top-left': 'top:8px;left:8px;',
+    };
+    const pStyle = posStyles[s.qrPosition] || posStyles['bottom-right'];
+    c += `<div id="qr-container" style="position:absolute;${pStyle}z-index:10;background:rgba(255,255,255,0.9);border-radius:4px;padding:2px;"></div>`;
+  }
+
+  return c;
+}
+
+/* ============================================================
+   QR CODE
+============================================================ */
+function renderQRCode() {
+  if (!state.showQR || !state.qrUrl) return;
+  setTimeout(() => {
+    const el = document.getElementById('qr-container');
+    if (!el) return;
+    el.innerHTML = '';
+    try {
+      new QRCode(el, { text: state.qrUrl, width: state.qrSize, height: state.qrSize, correctLevel: QRCode.CorrectLevel.M });
+    } catch(e) { el.innerHTML = '<div style="font-size:10px;color:red;">QR Error</div>'; }
+  }, 60);
+}
+
+/* ============================================================
+   BARCODE
+============================================================ */
+function renderBarcode() {
+  if (!state.showBarcode || !state.barcodeValue) return;
+  setTimeout(() => {
+    const el = document.getElementById('barcode-svg');
+    if (!el) return;
+    try {
+      JsBarcode(el, state.barcodeValue, {
+        format: state.barcodeFormat,
+        width: 1.5, height: 28,
+        displayValue: true, fontSize: 9,
+        margin: 3, lineColor: state.textColor,
+        background: 'transparent',
+      });
+    } catch(e) { /* invalid value for format */ }
+  }, 60);
+}
+
+/* ============================================================
+   PRINT & EXPORT
+============================================================ */
+function handlePrint() {
+  const container = document.getElementById('print-frame-container');
+  const preview = document.getElementById('label-canvas');
+  const clone = preview.cloneNode(true);
+  clone.style.border = 'none';
+  clone.style.boxShadow = 'none';
+  clone.style.position = 'fixed';
+  clone.style.top = '0'; clone.style.left = '0';
+  clone.style.transform = 'none';
+  container.innerHTML = '';
+  container.appendChild(clone);
+  setTimeout(() => { window.print(); setTimeout(() => { container.innerHTML = ''; }, 1000); }, 150);
+}
+
+function getScale() { return parseInt(document.getElementById('export-dpi').value) || 2; }
+
+function downloadPDF() {
+  showLoading('Generating PDF…', 'Rendering label at high quality');
+  const preview = document.getElementById('label-canvas');
+  const scale = getScale();
+  html2canvas(preview, {
+    scale, useCORS: true, allowTaint: true,
+    backgroundColor: state.bgColor, logging: false,
+    width: preview.offsetWidth, height: preview.offsetHeight,
+  }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const w = state.width, h = state.height;
+    const pdf = new jsPDF({ unit:'in', format:[w,h], orientation: w >= h ? 'landscape':'portrait' });
+    if (document.getElementById('crop-marks-toggle').checked) {
+      const mark = 0.1;
+      pdf.setLineWidth(0.005); pdf.setDrawColor(150,150,150);
+      [[0,0],[w,0],[0,h],[w,h]].forEach(([x,y]) => {
+        pdf.line(x, y, x + (x===0?mark:-mark), y);
+        pdf.line(x, y, x, y + (y===0?mark:-mark));
+      });
+    }
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+    pdf.save('label.pdf');
+    hideLoading();
+    showToast('PDF downloaded successfully', 'success');
+  }).catch(() => { hideLoading(); showToast('PDF export failed', 'error'); });
+}
+
+function downloadPNG() {
+  showLoading('Generating PNG…', 'Rendering at ' + (getScale()*72) + ' DPI');
+  const preview = document.getElementById('label-canvas');
+  html2canvas(preview, { scale: getScale(), useCORS: true, allowTaint: true, backgroundColor: state.bgColor, logging: false })
+    .then(canvas => {
+      const a = document.createElement('a');
+      a.download = 'label.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      hideLoading();
+      showToast('PNG downloaded successfully', 'success');
+    }).catch(() => { hideLoading(); showToast('PNG export failed', 'error'); });
+}
+
+function copyToClipboard() {
+  showLoading('Copying to clipboard…');
+  const preview = document.getElementById('label-canvas');
+  html2canvas(preview, { scale:2, useCORS:true, allowTaint:true, backgroundColor:state.bgColor, logging:false })
+    .then(async canvas => {
+      hideLoading();
+      try {
+        canvas.toBlob(async blob => {
+          await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+          showToast('Copied to clipboard!', 'success');
+        });
+      } catch { showToast('Copy not supported in this browser', 'warn'); }
+    }).catch(() => { hideLoading(); showToast('Failed to capture label', 'error'); });
+}
+
+/* ============================================================
+   LOADING
+============================================================ */
+let loadingBarTimer;
+function showLoading(text, sub) {
+  document.getElementById('loading-overlay').classList.add('active');
+  document.getElementById('loading-text').textContent = text || 'Processing…';
+  document.getElementById('loading-sub').textContent = sub || '';
+  let pct = 0;
+  const bar = document.getElementById('loading-bar');
+  bar.style.width = '0%';
+  clearInterval(loadingBarTimer);
+  loadingBarTimer = setInterval(() => { pct = Math.min(pct + 8, 85); bar.style.width = pct + '%'; }, 200);
+}
+function hideLoading() {
+  clearInterval(loadingBarTimer);
+  document.getElementById('loading-bar').style.width = '100%';
+  setTimeout(() => { document.getElementById('loading-overlay').classList.remove('active'); document.getElementById('loading-bar').style.width = '0%'; }, 300);
+}
+
+/* ============================================================
+   SAVE / LOAD / EXPORT
+============================================================ */
+function saveDesign() {
+  try {
+    const s = { ...state };
+    const logo = s.logoSrc;
+    s.logoSrc = logo ? '__LOGO__' : null;
+    localStorage.setItem('labelforge_v2_state', JSON.stringify(s));
+    localStorage.setItem('labelforge_v2_logo', logo || '');
+    showToast('Design saved to browser storage', 'success');
+  } catch(e) { showToast('Save failed — storage may be full', 'error'); }
+}
+
+function loadDesign() {
+  try {
+    const saved = localStorage.getItem('labelforge_v2_state');
+    if (!saved) { showToast('No saved design found', 'warn'); return; }
+    const logo = localStorage.getItem('labelforge_v2_logo') || null;
+    const s = JSON.parse(saved);
+    s.logoSrc = logo;
+    state = s;
+    syncUIFromState();
+    buildTemplateGrid();
+    updatePreview();
+    showToast('Design loaded from storage', 'success');
+  } catch(e) { showToast('Load failed — corrupted save data', 'error'); }
+}
+
+function exportDesignJSON() {
+  const s = { ...state, logoSrc: state.logoSrc ? '__LOGO__' : null };
+  const blob = new Blob([JSON.stringify({ design: s, logo: state.logoSrc || null }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'labelforge-design.json';
+  a.click();
+  showToast('Design exported as JSON', 'success');
+}
+
+function importDesignJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const s = data.design || data;
+      s.logoSrc = data.logo || null;
+      state = s;
+      syncUIFromState();
+      buildTemplateGrid();
+      updatePreview();
+      showToast('Design imported successfully', 'success');
+    } catch { showToast('Invalid JSON file', 'error'); }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  if (!confirm('Clear all label data and reset to default?')) return;
+  state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  removeLogo();
+  buildTemplateGrid();
+  syncUIFromState();
+  updatePreview();
+  showToast('All cleared — starting fresh', 'info');
+}
+
+/* ============================================================
+   SYNC UI FROM STATE
+============================================================ */
+function syncUIFromState() {
+  document.getElementById('lbl-w').value = state.width;
+  document.getElementById('lbl-h').value = state.height;
+  document.getElementById('font-family').value = state.fontFamily;
+  document.getElementById('font-weight').value = state.fontWeight;
+  document.getElementById('font-size-range').value = state.fontSize;
+  document.getElementById('font-size-val').textContent = state.fontSize + 'px';
+  document.getElementById('line-height-range').value = Math.round(state.lineHeight * 10);
+  document.getElementById('line-height-val').textContent = parseFloat(state.lineHeight).toFixed(1);
+  document.getElementById('letter-spacing-range').value = state.letterSpacing;
+  document.getElementById('letter-spacing-val').textContent = state.letterSpacing;
+  document.getElementById('color-bg').value = state.bgColor;
+  document.getElementById('color-bg-text').value = state.bgColor;
+  document.getElementById('color-text').value = state.textColor;
+  document.getElementById('color-text-text').value = state.textColor;
+  document.getElementById('color-accent').value = state.accentColor;
+  document.getElementById('color-accent-text').value = state.accentColor;
+  document.getElementById('qr-toggle').checked = state.showQR;
+  document.getElementById('qr-url').value = state.qrUrl;
+  document.getElementById('qr-size-range').value = state.qrSize;
+  document.getElementById('qr-size-val').textContent = state.qrSize + 'px';
+  document.getElementById('qr-position').value = state.qrPosition;
+  document.getElementById('barcode-toggle').checked = state.showBarcode;
+  document.getElementById('barcode-value').value = state.barcodeValue;
+  document.getElementById('barcode-format').value = state.barcodeFormat;
+  document.getElementById('padding-range').value = state.padding;
+  document.getElementById('padding-val').textContent = state.padding + 'px';
+  document.getElementById('corner-radius-range').value = state.cornerRadius;
+  document.getElementById('radius-val').textContent = state.cornerRadius + 'px';
+  document.getElementById('border-style').value = state.borderStyle;
+  document.getElementById('border-width-range').value = state.borderWidth;
+  document.getElementById('border-w-val').textContent = state.borderWidth + 'px';
+  document.getElementById('logo-size-range').value = state.logoSize;
+  document.getElementById('logo-size-val').textContent = state.logoSize + 'px';
+  document.getElementById('logo-opacity-range').value = state.logoOpacity;
+  document.getElementById('logo-opacity-val').textContent = state.logoOpacity + '%';
+  document.getElementById('logo-rot-range').value = state.logoRotation;
+  document.getElementById('logo-rot-val').textContent = state.logoRotation + '°';
+  document.getElementById('logo-radius-range').value = state.logoRadius;
+  document.getElementById('logo-radius-val').textContent = state.logoRadius;
+  document.getElementById('logo-offx-range').value = state.logoOffsetX;
+  document.getElementById('logo-offx-val').textContent = state.logoOffsetX;
+  document.getElementById('logo-offy-range').value = state.logoOffsetY;
+  document.getElementById('logo-offy-val').textContent = state.logoOffsetY;
+  document.getElementById('logo-shadow-toggle').checked = state.logoShadow;
+  document.getElementById('logo-gray-toggle').checked = state.logoGrayscale;
+  document.getElementById('logo-bg-toggle').checked = state.logoBgPlate;
+  document.getElementById('logo-bg-color-row').style.display = state.logoBgPlate ? 'block' : 'none';
+  document.getElementById('logo-bg-color').value = state.logoBgColor;
+  document.getElementById('logo-bg-color-text').value = state.logoBgColor;
+  // Logo position grid
+  document.querySelectorAll('.lag-cell').forEach(c => { c.classList.toggle('active', c.dataset.pos === state.logoPos); });
+  document.getElementById('active-type-badge').textContent = TEMPLATES.find(t => t.id === state.labelType)?.name || '';
+  updateSizeDisplay();
+  applyZoom();
+  buildDynamicFields();
+  // Restore field values
+  setTimeout(() => {
+    const defs = FIELDS_DEF[state.labelType] || [];
+    const inputs = document.querySelectorAll('#dynamic-fields .f-input');
+    inputs.forEach((input, i) => {
+      if (defs[i]) input.value = state.fields[defs[i].id] || '';
+    });
+  }, 30);
+}
+
+/* ============================================================
+   BATCH PRINTING
+============================================================ */
+function batchDragOver(e) { e.preventDefault(); document.getElementById('batch-drop-zone').classList.add('drag-over'); }
+function batchDragLeave() { document.getElementById('batch-drop-zone').classList.remove('drag-over'); }
+function batchDrop(e) { e.preventDefault(); batchDragLeave(); handleBatchCSV({ files: e.dataTransfer.files }); }
+
+function handleBatchCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!file.name.endsWith('.csv')) { showToast('Please upload a .csv file', 'error'); return; }
+
+  const batchType = document.getElementById('batch-label-type').value;
+  if (!batchType) { showToast('Please select a label type first', 'error'); return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const rows = parseCSV(e.target.result);
+    if (rows.length < 2) { showToast('CSV must have a header row + at least one data row', 'error'); return; }
+
+    const headers = rows[0].map(h => h.trim().toLowerCase());
+    const data = rows.slice(1).filter(r => r.some(c => c.trim()));
+    const fieldDefs = FIELDS_DEF[batchType] || [];
+
+    batchData = data.map((row, idx) => {
+      const fields = {};
+      fieldDefs.forEach((fd, i) => {
+        const colIdx = headers.indexOf(fd.id.toLowerCase());
+        if (colIdx >= 0) fields[fd.id] = (row[colIdx] || '').trim();
+        else if (i < row.length) fields[fd.id] = (row[i] || '').trim();
+      });
+      return { id: idx + 1, labelType: batchType, fields, status: 'pending' };
+    });
+
+    renderBatchRows();
+    showToast(`${batchData.length} label${batchData.length!==1?'s':''} loaded from CSV`, 'success');
+  };
+  reader.readAsText(file, 'UTF-8');
+  input.value = '';
+}
+
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  return lines.map(line => {
+    const cells = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cells.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    cells.push(cur);
+    return cells.map(c => c.trim().replace(/^"|"$/g,''));
+  });
+}
+
+function renderBatchRows() {
+  const stats = document.getElementById('batch-stats');
+  stats.style.display = 'block';
+  document.getElementById('batch-count-label').textContent = batchData.length + ' label' + (batchData.length!==1?'s':'') + ' ready';
+  const list = document.getElementById('batch-rows-list');
+  list.innerHTML = '';
+  batchData.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'batch-row-card';
+    card.id = `batch-row-${item.id}`;
+    const typeLabel = TEMPLATES.find(t => t.id === item.labelType);
+    const firstField = Object.values(item.fields)[0] || 'Label ' + item.id;
+    card.innerHTML = `
+      <div class="batch-row-num">${item.id}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${firstField || 'Label ' + item.id}</div>
+        <div style="font-size:10px;color:var(--slate);">${typeLabel?.icon||''} ${typeLabel?.name||item.labelType}</div>
+      </div>
+      <div class="batch-status pending" id="batch-status-${item.id}">⏳ Pending</div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function clearBatch() {
+  batchData = [];
+  document.getElementById('batch-stats').style.display = 'none';
+  document.getElementById('batch-bar').style.width = '0%';
+  showToast('Batch cleared', 'info');
+}
+
+async function openBatchPreview() {
+  if (!batchData.length) { showToast('No batch data loaded. Upload a CSV first.', 'warn'); return; }
+  const modal = document.getElementById('batch-preview-modal');
+  const grid = document.getElementById('batch-preview-content');
+  const countBadge = document.getElementById('batch-preview-count');
+  countBadge.textContent = batchData.length + ' labels';
+  grid.innerHTML = '<div style="width:100%;text-align:center;padding:20px;color:var(--slate);">Rendering previews…</div>';
+  modal.classList.add('active');
+
+  // Build mini previews
+  const DPI_SMALL = 60;
+  const wpx = Math.round(state.width * DPI_SMALL);
+  const hpx = Math.round(state.height * DPI_SMALL);
+
+  grid.innerHTML = '';
+  batchData.forEach(item => {
+    const s = { ...state, fields: item.fields, labelType: item.labelType, zoom: 1, padding: Math.round(state.padding * 0.6), fontSize: Math.round(state.fontSize * 0.6) };
+    const wrapper = document.createElement('div');
+    wrapper.className = 'batch-preview-item';
+    wrapper.title = 'Label ' + item.id;
+    const label = document.createElement('div');
+    label.style.cssText = `width:${wpx}px;height:${hpx}px;background:${state.bgColor};border:1px solid #ccc;border-radius:4px;overflow:hidden;position:relative;font-family:${state.fontFamily};font-size:${s.fontSize}px;color:${state.textColor};padding:${s.padding}px;box-sizing:border-box;`;
+    label.innerHTML = renderContent(item.labelType, s, item.fields);
+    const num = document.createElement('div');
+    num.style.cssText = `position:absolute;top:-4px;left:-4px;width:18px;height:18px;background:var(--amber);color:#fff;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;`;
+    num.textContent = item.id;
+    const del = document.createElement('button');
+    del.className = 'del-btn';
+    del.textContent = '✕';
+    del.onclick = () => { batchData = batchData.filter(d => d.id !== item.id); openBatchPreview(); };
+    wrapper.appendChild(label);
+    wrapper.appendChild(num);
+    wrapper.appendChild(del);
+    grid.appendChild(wrapper);
+  });
+}
+
+async function batchPrintAll() {
+  if (!batchData.length) { showToast('No batch data. Upload a CSV first.', 'warn'); return; }
+  showLoading(`Preparing ${batchData.length} labels for print…`, 'Rendering all labels');
+
+  const container = document.getElementById('print-frame-container');
+  container.innerHTML = '';
+  const wpx = Math.round(state.width * DPI);
+  const hpx = Math.round(state.height * DPI);
+
+  batchData.forEach(item => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `width:${wpx}px;height:${hpx}px;page-break-after:always;overflow:hidden;position:relative;box-sizing:border-box;`;
+    const inner = document.createElement('div');
+    inner.style.cssText = `width:100%;height:100%;background:${state.bgColor};color:${state.textColor};font-family:${state.fontFamily};font-size:${state.fontSize}px;font-weight:${state.fontWeight};line-height:${state.lineHeight};padding:${state.padding}px;box-sizing:border-box;overflow:hidden;`;
+    inner.innerHTML = renderContent(item.labelType, state, item.fields);
+    wrap.appendChild(inner);
+    container.appendChild(wrap);
+  });
+
+  setTimeout(() => {
+    hideLoading();
+    window.print();
+    setTimeout(() => { container.innerHTML = ''; }, 2000);
+  }, 600);
+}
+
+async function batchDownloadPDF() {
+  if (!batchData.length) { showToast('No batch data. Upload a CSV first.', 'warn'); return; }
+  showLoading(`Generating PDF for ${batchData.length} labels…`, 'Please wait, rendering each label');
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:'in', format:[state.width, state.height], orientation: state.width >= state.height ? 'landscape':'portrait' });
+  const wpx = Math.round(state.width * DPI);
+  const hpx = Math.round(state.height * DPI);
+
+  for (let i = 0; i < batchData.length; i++) {
+    const item = batchData[i];
+    setLoadingProgress((i/batchData.length)*90);
+    updateBatchStatus(item.id, 'rendering');
+
+    // Create off-screen element
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${wpx}px;height:${hpx}px;background:${state.bgColor};color:${state.textColor};font-family:${state.fontFamily};font-size:${state.fontSize}px;font-weight:${state.fontWeight};line-height:${state.lineHeight};padding:${state.padding}px;box-sizing:border-box;overflow:hidden;`;
+    el.innerHTML = renderContent(item.labelType, state, item.fields);
+    document.body.appendChild(el);
+
+    try {
+      const canvas = await html2canvas(el, { scale:2, useCORS:true, allowTaint:true, backgroundColor:state.bgColor, logging:false });
+      if (i > 0) pdf.addPage([state.width, state.height]);
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, state.width, state.height);
+      updateBatchStatus(item.id, 'done');
+    } catch {
+      updateBatchStatus(item.id, 'error');
+    }
+    document.body.removeChild(el);
+  }
+
+  setLoadingProgress(100);
+  pdf.save(`batch-labels-${batchData.length}.pdf`);
+  hideLoading();
+  showToast(`${batchData.length} labels exported as PDF!`, 'success');
+}
+
+async function batchDownloadPNGs() {
+  if (!batchData.length) { showToast('No batch data. Upload a CSV first.', 'warn'); return; }
+  showToast('Downloading PNGs individually — no ZIP library needed', 'info');
+  const wpx = Math.round(state.width * DPI);
+  const hpx = Math.round(state.height * DPI);
+
+  showLoading(`Generating ${batchData.length} PNG files…`);
+
+  for (let i = 0; i < batchData.length; i++) {
+    const item = batchData[i];
+    setLoadingProgress((i/batchData.length)*100);
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${wpx}px;height:${hpx}px;background:${state.bgColor};color:${state.textColor};font-family:${state.fontFamily};font-size:${state.fontSize}px;font-weight:${state.fontWeight};line-height:${state.lineHeight};padding:${state.padding}px;box-sizing:border-box;overflow:hidden;`;
+    el.innerHTML = renderContent(item.labelType, state, item.fields);
+    document.body.appendChild(el);
+    await new Promise(r => setTimeout(r, 80));
+    try {
+      const canvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:state.bgColor, logging:false });
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `label-${String(i+1).padStart(3,'0')}.png`;
+      a.click();
+      updateBatchStatus(item.id, 'done');
+    } catch { updateBatchStatus(item.id, 'error'); }
+    document.body.removeChild(el);
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  hideLoading();
+  showToast(`${batchData.length} PNGs downloaded!`, 'success');
+}
+
+function updateBatchStatus(id, status) {
+  const el = document.getElementById(`batch-status-${id}`);
+  if (!el) return;
+  const map = { rendering: '🔄 Rendering…', done: '✓ Done', error: '✕ Error', pending: '⏳ Pending' };
+  el.textContent = map[status] || status;
+  el.className = 'batch-status ' + (status === 'done' ? 'done' : status === 'error' ? 'error' : 'pending');
+}
+
+function setLoadingProgress(pct) {
+  document.getElementById('loading-bar').style.width = pct + '%';
+  document.getElementById('batch-bar').style.width = pct + '%';
+}
+
+/* ============================================================
+   CSV TEMPLATE MODAL
+============================================================ */
+function openCSVTemplateModal() {
+  document.getElementById('csv-modal').classList.add('active');
+}
+
+function selectCSVTemplate(type, el) {
+  selectedCSVTemplate = type;
+  document.querySelectorAll('.tmpl-select-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+
+  const headers = FIELDS_DEF[type].map(f => f.id);
+  const samples = CSV_SAMPLES[type] || [[]];
+  const tmplInfo = TEMPLATES.find(t => t.id === type);
+  const defs = FIELDS_DEF[type];
+
+  let csvText = '';
+  if (headers.length) {
+    // Add human-readable header comment
+    csvText += '# LabelForge CSV Template — ' + tmplInfo.name + '\n';
+    csvText += '# Column descriptions:\n';
+    defs.forEach(f => { csvText += `#   ${f.id}: ${f.label}${f.required ? ' (REQUIRED)' : ''}\n`; });
+    csvText += '#\n';
+    csvText += headers.map(h => `"${h}"`).join(',') + '\n';
+    samples.forEach(row => {
+      csvText += row.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',') + '\n';
+    });
+    // Add empty rows for filling
+    for (let i = samples.length; i < 5; i++) csvText += headers.map(() => '""').join(',') + '\n';
+  } else {
+    csvText = '# Logo-Only label — no CSV fields required.\n# This label type only uses your uploaded logo.\n';
+  }
+
+  document.getElementById('csv-preview-title').textContent = tmplInfo.icon + ' ' + tmplInfo.name + ' Template';
+  document.getElementById('csv-col-count').textContent = headers.length + ' columns';
+  document.getElementById('csv-preview-content').textContent = csvText;
+  document.getElementById('csv-preview-area').style.display = 'block';
+  document.getElementById('btn-download-csv').disabled = false;
+}
+
+function downloadCSVTemplate() {
+  if (!selectedCSVTemplate) return;
+  const type = selectedCSVTemplate;
+  const headers = FIELDS_DEF[type].map(f => f.id);
+  const samples = CSV_SAMPLES[type] || [[]];
+  const defs = FIELDS_DEF[type];
+  const tmplInfo = TEMPLATES.find(t => t.id === type);
+
+  let csvText = '';
+  if (headers.length) {
+    csvText += headers.map(h => `"${h}"`).join(',') + '\n';
+    samples.forEach(row => { csvText += row.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',') + '\n'; });
+    for (let i = samples.length; i < 10; i++) csvText += headers.map(() => '""').join(',') + '\n';
+  }
+
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `labelforge-${type}-template.csv`;
+  a.click();
+  showToast('CSV template downloaded: ' + tmplInfo.name, 'success');
+}
+
+/* ============================================================
+   UI UTILITIES
+============================================================ */
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// Close modals on overlay click
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('active');
+  }
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+});
+
+function toggleSection(btn) {
+  btn.classList.toggle('open');
+  const body = btn.nextElementSibling;
+  if (body && body.classList.contains('sec-body')) body.classList.toggle('open');
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.toggle('mobile-open');
+  overlay.classList.toggle('active');
+}
+
+function toggleDarkMode(cb) {
+  document.body.classList.toggle('dark', cb.checked);
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.stab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+  document.querySelectorAll('.stab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  el.setAttribute('aria-selected','true');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+/* ============================================================
+   TOAST
+============================================================ */
+function showToast(msg, type = 'default') {
+  const area = document.getElementById('toast-area');
+  const toast = document.createElement('div');
+  const icons = { success:'✓', error:'✕', info:'ℹ', warn:'⚠', default:'•' };
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span class="toast-icon">${icons[type]||'•'}</span><span>${msg}</span>`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  area.appendChild(toast);
+  setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 300); }, 3200);
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
